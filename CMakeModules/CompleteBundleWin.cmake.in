@@ -41,6 +41,26 @@ if(EXISTS "${MPV_FALLBACK_DIR}/libmpv-2.dll")
   message(STATUS "Installed fallback libmpv")
 endif()
 
+# Minitiger experimental libVLC runtime.
+# Phase 1 bundles the runtime next to the application while MPV stays active.
+if(@ENABLE_VLC@)
+  set(VLC_RUNTIME_DIR "@VLC_RUNTIME_DIR@")
+
+  foreach(vlc_dll libvlc.dll libvlccore.dll)
+    if(NOT EXISTS "${VLC_RUNTIME_DIR}/${vlc_dll}")
+      message(FATAL_ERROR "Missing VLC runtime file: ${VLC_RUNTIME_DIR}/${vlc_dll}")
+    endif()
+    file(INSTALL "${VLC_RUNTIME_DIR}/${vlc_dll}" DESTINATION "${CMAKE_INSTALL_PREFIX}")
+  endforeach()
+
+  if(NOT EXISTS "${VLC_RUNTIME_DIR}/plugins")
+    message(FATAL_ERROR "Missing VLC plugins directory: ${VLC_RUNTIME_DIR}/plugins")
+  endif()
+  file(INSTALL "${VLC_RUNTIME_DIR}/plugins" DESTINATION "${CMAKE_INSTALL_PREFIX}")
+
+  message(STATUS "Bundled Minitiger experimental libVLC runtime")
+endif()
+
 if(@DO_ENABLE_ANGLE_DEP@)
   message(STATUS "Deploying separate ANGLE deps")
   file(INSTALL @DEPENDENCY_CACHE_DIR@/libEGL.dll @DEPENDENCY_CACHE_DIR@/libGLESv2.dll @DEPENDENCY_CACHE_DIR@/d3dcompiler_47.dll DESTINATION ${CMAKE_INSTALL_PREFIX})
