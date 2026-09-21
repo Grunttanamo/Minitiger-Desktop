@@ -57,11 +57,7 @@ For Phase 1.3, VLC supports the first end-to-end video path with play/pause/stop
 
 ### Phase 1.4 audio/subtitle track test
 
-With **Native Video Player = VLC (Experimental)**, use Jellyfin media that has multiple tracks and verify:
-
-1. Switch between at least two embedded audio tracks while the video is playing.
-2. Switch between embedded subtitle tracks, then select subtitles off.
-3. If available, select an external Jellyfin subtitle track and confirm it appears without restarting playback.
+**Validated on Windows:** Jellyfin's existing audio and subtitle selectors work with the experimental VLC backend, including embedded audio tracks, embedded subtitles, subtitles off, external subtitle tracks, and initial/default stream selection.
 
 Phase 1.4 maps Jellyfin's 1-based relative stream selection to libVLC's actual track IDs. External subtitle Delivery URLs are attached to the active libVLC player as subtitle slaves.
 
