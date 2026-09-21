@@ -65,6 +65,7 @@ include(QtConfiguration)
 include(VersionConfiguration)
 include(NameConfiguration)
 include(PlayerConfiguration)
+include(VlcConfiguration)
 include(InputConfiguration)
 include(ClangTidy)
 
