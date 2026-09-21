@@ -15,6 +15,19 @@ if not exist "%DEPS_DIR%\vcruntime" (
     exit /b 1
 )
 
+if not exist "%VLC_DIR%\libvlc.dll" (
+    echo ERROR: libVLC runtime not found. Run dev\windows\setup-vlc.bat first
+    exit /b 1
+)
+if not exist "%VLC_DIR%\sdk\include\vlc\libvlc.h" (
+    echo ERROR: libVLC SDK headers not found. Run dev\windows\setup-vlc.bat first
+    exit /b 1
+)
+if not exist "%VLC_DIR%\sdk\lib\libvlc.lib" (
+    echo ERROR: libVLC import library not found. Run dev\windows\setup-vlc.bat first
+    exit /b 1
+)
+
 REM === Find Qt ===
 set QTROOT_WIN=%DEPS_DIR%\qt\%QT_VERSION%\msvc2022_64
 set "QTROOT=%QTROOT_WIN:\=/%"
@@ -60,6 +73,7 @@ if not exist "%DEPS_DIR%\mpv\libmpv-2.dll.lib" (
 
 REM === Configure ===
 set "DEPS_CMAKE=%DEPS_DIR:\=/%"
+set "VLC_CMAKE=%VLC_DIR:\=/%"
 echo Configuring...
 cmake -GNinja ^
     -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
@@ -67,6 +81,10 @@ cmake -GNinja ^
     -DQTROOT=%QTROOT% ^
     -DMPV_INCLUDE_DIR="%DEPS_CMAKE%/mpv/include" ^
     -DMPV_LIBRARY="%DEPS_CMAKE%/mpv/libmpv-2.dll.lib" ^
+    -DENABLE_VLC=ON ^
+    -DVLC_INCLUDE_DIR="%VLC_CMAKE%/sdk/include" ^
+    -DVLC_LIBRARY="%VLC_CMAKE%/sdk/lib/libvlc.lib" ^
+    -DVLC_RUNTIME_DIR="%VLC_CMAKE%" ^
     -DCHECK_FOR_UPDATES=ON ^
     -DUSE_STATIC_MPVQT=ON ^
     "%PROJECT_ROOT%"
