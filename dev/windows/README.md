@@ -1,50 +1,83 @@
-# Building Jellyfin Desktop on Windows
+# Building Minitiger Desktop on Windows
+
+This branch is experimental and is based on Jellyfin Desktop.
 
 ## Quick Start
 
-### Setup and build
+### First setup
+Open PowerShell in the repository and run:
+
 ```cmd
-dev\windows\setup.bat       # First time: download upstream dependencies
-dev\windows\setup-vlc.bat   # Minitiger Phase 1: download private libVLC SDK/runtime
-dev\windows\build.bat       # Build
+dev\windows\setup.bat
+dev\windows\setup-vlc.bat
 ```
-### Run the application
+
+If CMake, Ninja, aqtinstall, or other tools were installed during that first run, close the PowerShell window and open a **new** one before building so the updated PATH is available.
+
+### Build
+```cmd
+dev\windows\build.bat
+```
+
+### Run
 ```cmd
 dev\windows\run.bat
 ```
-### Run the unit tests
+
+### Unit tests
 ```cmd
 dev\windows\test.bat
 ```
 
-## Prerequisites
+## What the setup scripts install
 
-- **winget** (Windows Package Manager)
+`setup.bat` prepares the Jellyfin Desktop build toolchain:
 
-`setup.bat` installs everything else:
-- Visual Studio 2022 Build Tools (v143 toolset)
-- CMake, Ninja, 7-Zip, Inno Setup
-- aqtinstall, Qt 6.10.1
-- libmpv (AVX2 + fallback), VC++ redistributable
-- MinGW, WiX (for packaging)
+- Visual Studio 2022 Build Tools / MSVC
+- CMake
+- Ninja
+- 7-Zip
+- Inno Setup
+- aqtinstall + Qt 6.10.1
+- libmpv (AVX2 build + non-AVX2 fallback)
+- VC++ redistributable files
+- WiX tools used by packaging
 
-Minitiger's additional `setup-vlc.bat` downloads **VLC/libVLC 3.0.23** from VideoLAN into `dev/windows/deps/`. It does not install VLC system-wide.
+Minitiger's additional `setup-vlc.bat` prepares **VLC/libVLC 3.0.23** without installing VLC system-wide. It uses:
+
+- the official VideoLAN Windows x64 archive for `libvlc.dll`, `libvlccore.dll` and the VLC plugin tree;
+- the matching official VLC source archive for the public libVLC headers;
+- MSVC `dumpbin` + `lib` to generate the local `libvlc.lib` import library.
+
+Everything stays below `dev/windows/deps/`.
 
 ## Directory Structure
 
-- `dev/windows/deps/` - Downloaded dependencies (Qt, mpv, Minitiger libVLC, etc.)
-- `build/` - Build output (safe to delete)
-- `build/src/Jellyfin Desktop.exe` - Built executable
+- `dev/windows/deps/` - downloaded Qt, mpv, VLC and packaging dependencies
+- `build/` - build output; safe to delete for a clean rebuild
+- `build/src/Jellyfin Desktop.exe` - temporary Phase 1 executable name
 
 ## Scripts
 
-- `setup.bat` - Download upstream Jellyfin Desktop dependencies
-- `setup-vlc.bat` - Download the experimental Minitiger libVLC dependency
-- `build.bat` - Configure and build with MPV + libVLC available
-- `bundle.bat` - Create installer and portable ZIP
-- `run.bat` - Run executable (sets up Qt/mpv in PATH)
-- `test.bat` - Run unit tests (sets up Qt/mpv in PATH)
-- `common.bat` - Shared variables (sourced by other scripts)
+- `setup.bat` - prepare the base Windows/Jellyfin Desktop toolchain
+- `setup-vlc.bat` - prepare Minitiger's experimental libVLC dependency
+- `build.bat` - configure and build with MPV + libVLC linked
+- `bundle.bat` - create installer and portable ZIP
+- `run.bat` - run the development executable
+- `test.bat` - run unit tests
+- `common.bat` - pinned versions and shared paths
+
+## Recovering from an interrupted or failed setup
+
+The dependency folder is disposable. If an early setup run left partial archives or empty folders, remove it and run setup again:
+
+```powershell
+Remove-Item -Recurse -Force .\dev\windows\deps
+.\dev\windows\setup.bat
+.\dev\windows\setup-vlc.bat
+```
+
+Then open a new PowerShell window before `build.bat` if PATH-changing tools were installed.
 
 ## Clean Build
 
@@ -53,44 +86,52 @@ rmdir /s /q build
 dev\windows\build.bat
 ```
 
+In PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force .\build
+.\dev\windows\build.bat
+```
+
 ## Troubleshooting
+
+### `aqt` is not found immediately after installation
+
+The Minitiger setup script now searches the winget link/package paths directly, so a first setup run should normally continue without a shell restart. If Windows still hides the newly installed executable, open a new PowerShell window and rerun `setup.bat`.
+
+### CMake or Ninja is not found
+
+Open a new PowerShell window after the first dependency installation. `build.bat` now checks both executables and prints this explicitly.
+
+### MPV archive is only a few bytes / cannot be extracted
+
+The old upstream development script referenced a removed mpv-winbuild release tag. Minitiger pins a currently published mpv development build and uses `curl --fail` so an HTTP error stops setup instead of creating a tiny invalid archive.
+
+### VLC SDK headers are missing
+
+The normal VideoLAN Windows runtime archive is not treated as an SDK anymore. Minitiger downloads matching public headers from the official VLC source archive and generates its own MSVC import library.
 
 ### Black Screen / GPU Issues
 
-Try software rendering:
+Try:
+
 ```cmd
 dev\windows\run.bat --software-rendering
 ```
 
-Common causes:
-- Outdated GPU drivers
-- Missing DirectX components
-- Hardware acceleration incompatibility
-
-### Log Files
-
-```
-%LOCALAPPDATA%\Jellyfin Desktop\logs\jellyfin-desktop.log
-```
-
-## Notes
-
-- Qt 6.10.1 requires VS 2022 toolset (v143) for ABI compatibility
-- Version info centralized in `common.bat`
-- `run.bat` adds Qt/mpv to PATH; `bundle.bat` creates standalone packages
-
+Common causes include outdated GPU drivers, missing DirectX components, or hardware acceleration incompatibilities.
 
 ## Minitiger Native VLC Phase 1 status
 
-This branch is **experimental development work**. Phase 1.0 only adds the libVLC SDK/runtime to the Windows build and keeps MPV as the active playback backend.
+This branch is **experimental development work**.
 
 At this stage:
 
 - MPV remains the working/default native player.
-- libVLC is downloaded, validated, linked and prepared for bundling.
+- libVLC is downloaded, validated, linked and prepared for Windows bundling.
 - There is **no VLC video surface yet**.
 - There is **no MPV/VLC selector yet**.
-- The executable is still named `Jellyfin Desktop.exe` during this foundation step to avoid changing the upstream packaging before the first build is verified.
-- Minitiger application data is stored separately from stock Jellyfin Desktop.
+- The executable is still named `Jellyfin Desktop.exe` during the foundation step.
+- Minitiger application data and WebEngine storage are separated from stock Jellyfin Desktop.
 
 Do not treat this branch as a stable Minitiger Desktop release yet.
