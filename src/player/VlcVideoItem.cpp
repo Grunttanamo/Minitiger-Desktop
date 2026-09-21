@@ -124,6 +124,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     if (!ensureVlc())
         return false;
 
+    m_source = source;
     releasePlayer();
 
     {
@@ -362,6 +363,115 @@ void VlcVideoItem::setPlaybackRate(double rate)
         return;
 
     libvlc_media_player_set_rate(m_mediaPlayer, static_cast<float>(rate));
+}
+
+int VlcVideoItem::trackIdForRelativeIndex(libvlc_track_description_t* tracks, int relativeIndex) const
+{
+    if (relativeIndex <= 0)
+        return -1;
+
+    int current = 0;
+    for (libvlc_track_description_t* track = tracks; track; track = track->p_next)
+    {
+        // Subtitle lists can include the synthetic "Disable" entry with id -1.
+        if (track->i_id < 0)
+            continue;
+
+        ++current;
+        if (current == relativeIndex)
+            return track->i_id;
+    }
+
+    return -1;
+}
+
+bool VlcVideoItem::setAudioTrackRelative(int relativeIndex)
+{
+    if (!m_mediaPlayer || relativeIndex <= 0)
+        return false;
+
+    libvlc_track_description_t* tracks = libvlc_audio_get_track_description(m_mediaPlayer);
+    const int trackId = trackIdForRelativeIndex(tracks, relativeIndex);
+
+    if (tracks)
+        libvlc_track_description_list_release(tracks);
+
+    if (trackId < 0)
+    {
+        qWarning() << "Minitiger VLC: audio relative track not found:" << relativeIndex;
+        return false;
+    }
+
+    const int result = libvlc_audio_set_track(m_mediaPlayer, trackId);
+    qInfo() << "Minitiger VLC audio track:" << relativeIndex << "-> id" << trackId
+            << (result == 0 ? "selected" : "failed");
+    return result == 0;
+}
+
+bool VlcVideoItem::setSubtitleTrackRelative(int relativeIndex)
+{
+    if (!m_mediaPlayer)
+        return false;
+
+    if (relativeIndex < 0)
+    {
+        const int result = libvlc_video_set_spu(m_mediaPlayer, -1);
+        qInfo() << "Minitiger VLC subtitles disabled"
+                << (result == 0 ? "successfully" : "with error");
+        return result == 0;
+    }
+
+    libvlc_track_description_t* tracks = libvlc_video_get_spu_description(m_mediaPlayer);
+    const int trackId = trackIdForRelativeIndex(tracks, relativeIndex);
+
+    if (tracks)
+        libvlc_track_description_list_release(tracks);
+
+    if (trackId < 0)
+    {
+        qWarning() << "Minitiger VLC: subtitle relative track not found:" << relativeIndex;
+        return false;
+    }
+
+    const int result = libvlc_video_set_spu(m_mediaPlayer, trackId);
+    qInfo() << "Minitiger VLC subtitle track:" << relativeIndex << "-> id" << trackId
+            << (result == 0 ? "selected" : "failed");
+    return result == 0;
+}
+
+bool VlcVideoItem::addExternalSubtitle(const QString& source)
+{
+    if (!m_mediaPlayer || source.trimmed().isEmpty())
+        return false;
+
+    QUrl subtitleUrl;
+    QFileInfo localFile(source);
+
+    if (localFile.exists() && localFile.isFile())
+    {
+        subtitleUrl = QUrl::fromLocalFile(localFile.absoluteFilePath());
+    }
+    else
+    {
+        subtitleUrl = QUrl(source);
+
+        if (subtitleUrl.isRelative())
+        {
+            const QUrl mediaUrl(m_source);
+            subtitleUrl = mediaUrl.resolved(subtitleUrl);
+        }
+    }
+
+    const QByteArray encoded = subtitleUrl.toEncoded(QUrl::FullyEncoded);
+    const int result = libvlc_media_player_add_slave(
+        m_mediaPlayer,
+        libvlc_media_slave_type_subtitle,
+        encoded.constData(),
+        true);
+
+    qInfo() << "Minitiger VLC external subtitle:" << encoded
+            << (result == 0 ? "added" : "failed");
+    return result == 0;
 }
 
 void VlcVideoItem::pollPlaybackState()
