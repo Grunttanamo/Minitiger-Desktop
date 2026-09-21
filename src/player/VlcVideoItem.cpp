@@ -342,7 +342,7 @@ QString VlcVideoItem::controlOverlayText() const
 
     return QStringLiteral(
         "Minitiger libVLC · Phase 1.2\n"
-        "%1  ·  %2 / %3  ·  Volume %4%%%5\n"
+        "%1  ·  %2 / %3  ·  Volume %4% %5\n"
         "Space Pause/Play   ←/→ Seek 10s   ↑/↓ Volume 5   M Mute")
         .arg(state)
         .arg(formatTimeMs(positionMs()))
