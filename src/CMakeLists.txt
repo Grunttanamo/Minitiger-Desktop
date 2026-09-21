@@ -214,6 +214,7 @@ target_link_libraries(jmp_core
   Qt6::Widgets
   Qt6::WebEngineQuick
   Qt6::WebEngineCore
+  Qt6::Network
   Qt6::OpenGL
   Qt6::Xml
   Qt6::Gui
