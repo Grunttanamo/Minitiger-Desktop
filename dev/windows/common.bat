@@ -5,9 +5,11 @@ REM Sourced by other scripts
 set QT_VERSION=6.10.1
 set MPV_RELEASE=20260223
 set MPV_VERSION=20260223-git-f439c7f
+set VLC_VERSION=3.0.23
 set SCRIPT_DIR=%~dp0
 for %%i in ("%SCRIPT_DIR%\..\..") do set "PROJECT_ROOT=%%~fi"
 set DEPS_DIR=%SCRIPT_DIR%deps
+set VLC_DIR=%DEPS_DIR%\vlc-%VLC_VERSION%
 set BUILD_DIR=%PROJECT_ROOT%\build
 set EXE_NAME=Jellyfin Desktop.exe
 
@@ -36,5 +38,6 @@ if not exist "%BUILD_DIR%" (
     exit /b 1
 )
 set "PATH=%DEPS_DIR%\mpv;%PATH%"
+if exist "%VLC_DIR%\libvlc.dll" set "PATH=%VLC_DIR%;%PATH%"
 set "PATH=%DEPS_DIR%\qt\%QT_VERSION%\msvc2022_64\bin;%PATH%"
 goto :eof
