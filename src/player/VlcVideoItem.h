@@ -6,6 +6,7 @@
 #include <QQuickPaintedItem>
 #include <QRectF>
 #include <QString>
+#include <QTimer>
 #include <atomic>
 
 #include <vlc/vlc.h>
@@ -24,7 +25,7 @@ public:
 
     void paint(QPainter* painter) override;
 
-    Q_INVOKABLE bool playSource(const QString& source);
+    Q_INVOKABLE bool playSource(const QString& source, qint64 startMilliseconds = 0, bool autoplay = true);
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void pausePlayback();
     Q_INVOKABLE void resumePlayback();
@@ -39,8 +40,17 @@ public:
     Q_INVOKABLE int volume() const;
     Q_INVOKABLE void setMuted(bool muted);
     Q_INVOKABLE bool muted() const;
+    Q_INVOKABLE void setPlaybackRate(double rate);
 
     QString lastError() const { return m_lastError; }
+
+Q_SIGNALS:
+    void playbackStarted();
+    void playbackPaused();
+    void playbackFinished();
+    void playbackError(const QString& message);
+    void positionChanged(qint64 milliseconds);
+    void durationChanged(qint64 milliseconds);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -62,6 +72,7 @@ private:
     void releasePlayer();
     void setError(const QString& error);
     QString controlOverlayText() const;
+    void pollPlaybackState();
 
     QRectF controlBarRect() const;
     QRectF progressRect() const;
@@ -83,6 +94,12 @@ private:
     unsigned m_videoWidth = 0;
     unsigned m_videoHeight = 0;
     int m_volume = 40;
+    QTimer m_pollTimer;
+    libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
+    qint64 m_lastDurationMs = -1;
+    qint64 m_pendingStartMs = 0;
+    bool m_pendingAutoplay = true;
+    bool m_pendingInitialSeek = false;
 };
 
 #endif // VLCVIDEOITEM_H
