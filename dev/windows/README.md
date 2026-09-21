@@ -95,6 +95,14 @@ Remove-Item -Recurse -Force .\build
 
 ## Troubleshooting
 
+### CMake cannot find `external/mpvqt/src/mpvabstractitem.cpp`
+
+Jellyfin Desktop keeps MpvQt in a git submodule. Minitiger's `setup.bat` and `build.bat` now initialize submodules automatically. For an older checkout, this command also fixes it manually:
+
+```powershell
+git submodule update --init --recursive
+```
+
 ### `aqt` is not found immediately after installation
 
 The Minitiger setup script now searches the winget link/package paths directly, so a first setup run should normally continue without a shell restart. If Windows still hides the newly installed executable, open a new PowerShell window and rerun `setup.bat`.
