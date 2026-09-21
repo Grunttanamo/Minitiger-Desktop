@@ -55,7 +55,8 @@ Current work:
 - [x] Add the first experimental embedded VLC software video surface
 - [ ] Add the native VLC player backend
 - [ ] Add MPV / VLC player selection
-- [ ] Connect play, pause, seek, volume, audio and subtitle controls
+- [x] Add Phase 1.2 VLC play/pause/seek/volume/mute control prototype
+- [ ] Connect final audio and subtitle track controls
 - [ ] Connect Jellyfin progress, resume and playback reporting
 - [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
 
@@ -76,6 +77,28 @@ In this test mode the normal WebEngine and MPV visual layers are hidden and libV
 This first surface intentionally uses VLC video callbacks and a Qt image buffer. It is a proof that libVLC can render inside our existing Qt window. Hardware-optimized rendering and the real MPV/VLC selector come later.
 
 Normal startup without `--vlc-test` continues to use the existing Jellyfin Desktop / MPV path.
+
+### Phase 1.2 · VLC control prototype
+
+The isolated VLC test surface now exposes the first reusable playback-control API:
+
+- play / pause / resume / stop
+- absolute and relative seek
+- position and duration
+- volume and mute
+
+The test player intentionally starts at **40% volume** for safer development testing.
+
+While `--vlc-test` is active:
+
+```text
+Space   Pause / Play
+← / →   Seek -10s / +10s
+↑ / ↓   Volume +5 / -5
+M       Mute / Unmute
+```
+
+A small in-video diagnostic overlay shows the VLC state, playback position, duration, volume and mute state. These controls are still developer-only; the next integration step is to route the normal Minitiger/Jellyfin player controls through the selectable native backend.
 
 ## Player plan
 
