@@ -89,13 +89,14 @@ void BundledWebServer::handleRequest(QTcpSocket* socket)
     if (!rawTarget.startsWith('/'))
         rawTarget.prepend('/');
 
-    // Keep the URL path encoded here. Webpack can emit filenames containing
-    // literal percent-escape sequences such as "%40", which match the aliases
-    // stored in the Qt resource collection.
-    const QString requestPath = QString::fromUtf8(rawTarget);
+    // Browser requests percent-encode characters in path segments (for
+    // example '@' becomes '%40'). The Qt resource aliases contain the actual
+    // webpack filenames, so decode the URL path before looking up the resource.
+    const QString requestPath = QUrl::fromPercentEncoding(rawTarget);
     QString resourcePath = QStringLiteral(":/web-client/minitiger") + requestPath;
 
-    // Prevent attempts to traverse outside the embedded web root.
+    // Prevent attempts to traverse outside the embedded web root. Perform this
+    // check after percent-decoding so encoded traversal attempts are rejected.
     if (requestPath.contains(QStringLiteral("..")))
     {
         socket->write(responseForStatus(403, "Forbidden", "text/plain; charset=utf-8"));
@@ -119,7 +120,8 @@ void BundledWebServer::handleRequest(QTcpSocket* socket)
 
     if (!file.exists() || !file.open(QIODevice::ReadOnly))
     {
-        qWarning() << "Bundled web resource not found:" << requestPath;
+        qWarning() << "Bundled web resource not found:" << requestPath
+                   << "(raw request:" << rawTarget << ")";
         socket->write(responseForStatus(404, "Not Found", "text/plain; charset=utf-8"));
         socket->disconnectFromHost();
         return;
