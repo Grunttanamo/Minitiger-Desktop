@@ -5,6 +5,19 @@ REM Run setup.bat and setup-vlc.bat first.
 setlocal enabledelayedexpansion
 call "%~dp0common.bat"
 
+REM === Ensure git submodules are present ===
+if not exist "%PROJECT_ROOT%\external\mpvqt\src\mpvabstractitem.cpp" (
+    echo Preparing git submodules...
+    pushd "%PROJECT_ROOT%"
+    git submodule update --init --recursive
+    if errorlevel 1 (
+        popd
+        echo ERROR: Failed to initialize git submodules.
+        exit /b 1
+    )
+    popd
+)
+
 REM === Check dependencies ===
 if not exist "%DEPS_DIR%\mpv\libmpv-2.dll" (
     echo ERROR: libmpv not found. Run dev\windows\setup.bat first.
