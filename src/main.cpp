@@ -12,12 +12,16 @@
 #include <QCommandLineOption>
 #include <QDebug>
 #include <QSettings>
+#include <QTimer>
 
 #include "shared/Names.h"
 #include "system/SystemComponent.h"
 #include "Paths.h"
 #include "core/ProfileManager.h"
 #include "player/PlayerComponent.h"
+#ifdef MINITIGER_ENABLE_VLC
+#include "player/VlcVideoItem.h"
+#endif
 #include "player/OpenGLDetect.h"
 #include "display/DisplayComponent.h"
 #include "Version.h"
@@ -184,6 +188,11 @@ int main(int argc, char *argv[])
     auto createProfileOption = QCommandLineOption("create-profile", "Create a new profile and exit.");
     createProfileOption.setValueName("name");
 
+    auto vlcTestOption = QCommandLineOption(
+      "vlc-test",
+      "Play a local file or URL with the experimental embedded libVLC surface.");
+    vlcTestOption.setValueName("source");
+
     parser.addOption(scaleOption);
     parser.addOption(devOption);
     parser.addOption(platformOption);
@@ -194,6 +203,7 @@ int main(int argc, char *argv[])
     parser.addOption(listProfilesOption);
     parser.addOption(deleteProfileOption);
     parser.addOption(createProfileOption);
+    parser.addOption(vlcTestOption);
 
     char **newArgv = appendCommandLineArguments(argc, argv, g_qtFlags);
     int newArgc = argc + static_cast<int>(g_qtFlags.size());
@@ -501,11 +511,13 @@ int main(int argc, char *argv[])
 
     Globals::SetContextProperty("components", &ComponentManager::Get().getQmlPropertyMap());
 
+    const QString minitigerVlcTestSource = parser.value(vlcTestOption);
+
     // the only way to detect if QML parsing fails is to hook to this signal and then see
     // if we get a valid object passed to it. Any error messages will be reported on stderr
     // but since no normal user should ever see this it should be fine
     //
-    QObject::connect(engine, &QQmlApplicationEngine::objectCreated, [&](QObject* object, const QUrl& url)
+    QObject::connect(engine, &QQmlApplicationEngine::objectCreated, [&, minitigerVlcTestSource](QObject* object, const QUrl& url)
     {
       Q_UNUSED(url);
 
@@ -513,6 +525,44 @@ int main(int argc, char *argv[])
         throw FatalException(QObject::tr("Failed to parse application engine script."));
 
       QQuickWindow* window = Globals::MainWindow();
+
+#ifdef MINITIGER_ENABLE_VLC
+      if (!minitigerVlcTestSource.isEmpty())
+      {
+        qInfo() << "Starting Minitiger embedded VLC surface test";
+
+        auto* vlcVideo = new VlcVideoItem(window->contentItem());
+        vlcVideo->setObjectName("minitigerVlcVideo");
+        vlcVideo->setZ(50);
+        vlcVideo->setX(0);
+        vlcVideo->setY(0);
+        vlcVideo->setWidth(window->width());
+        vlcVideo->setHeight(window->height());
+
+        QObject::connect(window, &QQuickWindow::widthChanged, vlcVideo,
+                         [vlcVideo](int width) { vlcVideo->setWidth(width); });
+        QObject::connect(window, &QQuickWindow::heightChanged, vlcVideo,
+                         [vlcVideo](int height) { vlcVideo->setHeight(height); });
+
+        // Phase 1.1 is intentionally isolated from the normal Jellyfin/MPV path.
+        // Hide both existing visual layers only while --vlc-test is active.
+        if (QObject* web = window->findChild<QObject*>("web"))
+          web->setProperty("visible", false);
+
+        if (QObject* mpvVideo = window->findChild<QObject*>("video"))
+          mpvVideo->setProperty("visible", false);
+
+        window->setTitle(QStringLiteral("Minitiger Desktop · VLC Surface Test"));
+
+        QTimer::singleShot(0, vlcVideo, [vlcVideo, minitigerVlcTestSource]() {
+          if (!vlcVideo->playSource(minitigerVlcTestSource))
+            qCritical() << "Minitiger VLC surface test failed:" << vlcVideo->lastError();
+        });
+      }
+#else
+      if (!minitigerVlcTestSource.isEmpty())
+        qWarning() << "--vlc-test was requested, but this build has no libVLC support";
+#endif
 
       // Set window flags for proper popup handling (e.g., WebEngineView dropdowns)
       window->setFlags(window->flags() | Qt::WindowFullscreenButtonHint);
