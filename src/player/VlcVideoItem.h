@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QMutex>
 #include <QQuickPaintedItem>
+#include <QRectF>
 #include <QString>
 #include <atomic>
 
