@@ -620,17 +620,29 @@ void VlcVideoItem::paint(QPainter* painter)
         return;
     }
 
-    const QSizeF sourceSize(m_frame.width(), m_frame.height());
-    QSizeF targetSize = sourceSize;
-    targetSize.scale(boundingRect().size(), Qt::KeepAspectRatio);
+    // Phase 1.5a quality path:
+    // The VLC callback gives us a native-resolution QImage. QPainter otherwise
+    // may use a fast nearest-neighbour style transform when that frame needs to
+    // be resized to the Qt Quick surface, which is especially visible on anime
+    // line art and rendered subtitles. Force smooth image filtering and keep
+    // the destination rectangle pixel-aligned to avoid additional shimmer.
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
 
+    const QSize sourceSize(m_frame.width(), m_frame.height());
+    const QSize availableSize(
+        qMax(1, qRound(width())),
+        qMax(1, qRound(height())));
+    const QSize targetSize = sourceSize.scaled(availableSize, Qt::KeepAspectRatio);
+
+    const qreal targetX = qRound((width() - targetSize.width()) / 2.0);
+    const qreal targetY = qRound((height() - targetSize.height()) / 2.0);
     const QRectF target(
-        (width() - targetSize.width()) / 2.0,
-        (height() - targetSize.height()) / 2.0,
+        targetX,
+        targetY,
         targetSize.width(),
         targetSize.height());
 
-    painter->drawImage(target, m_frame);
+    painter->drawImage(target, m_frame, QRectF(m_frame.rect()));
 
     if (m_testControlsVisible)
     {
