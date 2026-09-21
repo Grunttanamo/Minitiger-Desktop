@@ -20,7 +20,9 @@
             /**
              * @type {string}
              */
-            this.name = 'MPV Video Player';
+            this.name = window.jmpInfo?.settings?.main?.nativeVideoBackend === 'vlc'
+                ? 'VLC Video Player (Experimental)'
+                : 'MPV Video Player';
             /**
              * @type {string}
              */
