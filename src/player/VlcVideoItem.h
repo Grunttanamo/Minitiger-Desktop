@@ -41,6 +41,9 @@ public:
     Q_INVOKABLE void setMuted(bool muted);
     Q_INVOKABLE bool muted() const;
     Q_INVOKABLE void setPlaybackRate(double rate);
+    Q_INVOKABLE bool setAudioTrackRelative(int relativeIndex);
+    Q_INVOKABLE bool setSubtitleTrackRelative(int relativeIndex);
+    Q_INVOKABLE bool addExternalSubtitle(const QString& source);
     Q_INVOKABLE void setTestControlsVisible(bool visible) { m_testControlsVisible = visible; update(); }
 
     QString lastError() const { return m_lastError; }
@@ -74,6 +77,7 @@ private:
     void setError(const QString& error);
     QString controlOverlayText() const;
     void pollPlaybackState();
+    int trackIdForRelativeIndex(libvlc_track_description_t* tracks, int relativeIndex) const;
 
     QRectF controlBarRect() const;
     QRectF progressRect() const;
@@ -90,6 +94,7 @@ private:
     QImage m_frame;
     QMutex m_frameMutex;
     QString m_lastError;
+    QString m_source;
     QString m_status = QStringLiteral("VLC surface ready - waiting for media");
     std::atomic_bool m_receivedFrame { false };
     unsigned m_videoWidth = 0;
