@@ -72,7 +72,7 @@ branch: minitiger-v12.1
 
 On the first build, `prepare-minitiger-web.bat` clones the frontend under `dev/windows/deps/minitiger-web-src`, runs `npm ci` and `npm run build:production`, then embeds `dist/` into the desktop executable. Later builds skip the npm rebuild while the source commit is unchanged.
 
-After building, start Minitiger Desktop normally and connect it to the **normal Jellyfin Server address** (for example `:8096`). The expected result is that the Minitiger UI opens from the embedded `qrc:///web-client/minitiger/` resources; no sidecar / `:8098` frontend should be required.
+After building, start Minitiger Desktop normally and connect it to the **normal Jellyfin Server address** (for example `:8096`). The expected result is that Minitiger Desktop starts a private `127.0.0.1:<automatic-port>` HTTP endpoint inside the same process and serves the embedded Minitiger UI from there. No sidecar / `:8098` frontend should be running or required.
 
 ### Unit tests
 ```cmd
