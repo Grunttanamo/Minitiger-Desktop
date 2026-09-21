@@ -5,6 +5,7 @@
 #include <QMetaObject>
 #include <QMutexLocker>
 #include <QPainter>
+#include <QUrl>
 
 #include <cstring>
 
@@ -74,23 +75,37 @@ bool VlcVideoItem::playSource(const QString& source)
     libvlc_media_t* media = nullptr;
 
     QFileInfo fileInfo(source);
+    libvlc_clearerr();
+
     if (fileInfo.exists() && fileInfo.isFile())
     {
-        const QByteArray absolutePath = fileInfo.absoluteFilePath().toUtf8();
-        media = libvlc_media_new_path(m_vlc, absolutePath.constData());
-        qInfo() << "Minitiger VLC opening local file:" << fileInfo.absoluteFilePath();
+        const QString absolutePath = fileInfo.absoluteFilePath();
+        const QUrl fileUrl = QUrl::fromLocalFile(absolutePath);
+        const QByteArray location = fileUrl.toEncoded(QUrl::FullyEncoded);
+
+        qInfo() << "Minitiger VLC opening local file:" << absolutePath;
+        qInfo() << "Minitiger VLC file URL:" << location;
+
+        // Use an explicit file:// URL instead of libvlc_media_new_path().
+        // This is more robust on Windows for spaces and non-ASCII paths.
+        media = libvlc_media_new_location(m_vlc, location.constData());
     }
     else
     {
         const QByteArray location = source.toUtf8();
-        media = libvlc_media_new_location(m_vlc, location.constData());
         qInfo() << "Minitiger VLC opening location:" << source;
+        media = libvlc_media_new_location(m_vlc, location.constData());
     }
-
 
     if (!media)
     {
-        setError(QStringLiteral("Failed to create libVLC media"));
+        const char* vlcError = libvlc_errmsg();
+        const QString detail = vlcError
+            ? QString::fromUtf8(vlcError)
+            : QStringLiteral("no libVLC error text available");
+
+        setError(QStringLiteral("Failed to create libVLC media: %1\nSource: %2")
+                     .arg(detail, source));
         return false;
     }
 
