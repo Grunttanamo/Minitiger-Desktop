@@ -9,7 +9,7 @@ import Qt.labs.platform as Labs
 Window
 {
   id: mainWindow
-  title: "Jellyfin Desktop"
+  title: "Minitiger Desktop · Experimental"
   objectName: "mainWindow"
   width: 1280
   height: 720
@@ -252,7 +252,7 @@ Window
     }
     profile.persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
     profile.offTheRecord: false
-    profile.storageName: "JellyfinDesktopStorage"
+    profile.storageName: "MinitigerDesktopStorage"
 
     Component.onCompleted:
     {
@@ -422,7 +422,7 @@ Window
   Labs.SystemTrayIcon {
     visible: showSystemTrayIcon
     icon.source: "qrc:/images/icon.png"
-    tooltip: "Jellyfin Desktop"
+    tooltip: "Minitiger Desktop · Experimental"
 
     onActivated: function(reason) {
       if (reason === Labs.SystemTrayIcon.Context) {
