@@ -56,7 +56,7 @@ Current work:
 - [x] Add the first native VLC player backend path
 - [x] Add local MPV / VLC video backend selection
 - [x] Add Phase 1.2 VLC play/pause/seek/volume/mute control prototype
-- [ ] Connect final audio and subtitle track controls
+- [x] Wire Jellyfin audio/subtitle track controls to libVLC (Phase 1.4; Windows validation pending)
 - [x] Connect basic VLC position/duration/playback state signals to Jellyfin
 - [x] Verify first end-to-end Jellyfin → embedded VLC playback with normal Jellyfin OSD
 - [x] Verify Jellyfin progress/resume, episode end and queue/auto-next with VLC
@@ -144,11 +144,21 @@ The normal Jellyfin video OSD remains above the native VLC surface. The old Phas
 
 **Also verified on Windows:** Jellyfin resume/progress behavior, episode completion and automatic next-episode/queue progression work with the VLC backend.
 
-Current Phase 1.3 limitations:
+### Phase 1.4 · Audio and subtitle tracks
 
-- audio track switching is not wired to VLC yet
-- subtitle track switching is not wired to VLC yet
-- VLC remains experimental; MPV is still the default and fallback
+Phase 1.4 wires Jellyfin's existing audio-language and subtitle selectors into libVLC.
+
+Implemented for the VLC backend:
+
+- embedded audio track switching
+- embedded subtitle track switching
+- subtitles off
+- external Jellyfin subtitle URLs via VLC media-player slaves
+- initial/default Jellyfin audio and subtitle selection when playback starts
+
+This phase still needs Windows end-to-end validation with media that has multiple audio and subtitle tracks.
+
+VLC remains experimental; MPV is still the default and fallback.
 
 ## Player plan
 
