@@ -178,7 +178,7 @@
       {
         "value": "nativeVideoBackend",
         "display_name": "Native Video Player",
-        "help": "Selects the native video engine used by Minitiger Desktop. MPV is the stable default. VLC is experimental and currently supports basic Jellyfin video playback, play/pause, seek, volume, mute, progress and resume reporting. Audio/subtitle track switching is still being integrated.",
+        "help": "Selects the native video engine used by Minitiger Desktop. MPV is the stable default. VLC is experimental and currently supports Jellyfin video playback, play/pause, seek, volume, mute, progress/resume reporting, and experimental audio/subtitle track switching.",
         "default": "mpv",
         "platforms": [ "windows" ],
         "possible_values": [
