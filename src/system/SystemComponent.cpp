@@ -25,6 +25,9 @@
 
 #include "input/InputComponent.h"
 #include "SystemComponent.h"
+#ifdef MINITIGER_BUNDLED_WEB
+#include "BundledWebServer.h"
+#endif
 #include "Version.h"
 #include "settings/SettingsComponent.h"
 #include "settings/SettingsSection.h"
@@ -105,6 +108,15 @@ bool SystemComponent::componentInitialize()
 {
   QDir().mkpath(ProfileManager::activeProfile().dataDir("scripts"));
   QDir().mkpath(ProfileManager::activeProfile().dataDir("sounds"));
+
+#ifdef MINITIGER_BUNDLED_WEB
+  m_bundledWebServer = new BundledWebServer(this);
+  if (!m_bundledWebServer->start())
+  {
+    qCritical() << "Failed to start bundled Minitiger Web server";
+    return false;
+  }
+#endif
 
   return true;
 }
@@ -581,7 +593,15 @@ QString SystemComponent::getNativeShellScript()
 
 #ifdef MINITIGER_BUNDLED_WEB
   clientData.insert("bundledMinitigerWeb", true);
-  clientData.insert("bundledMinitigerWebUrl", "qrc:///web-client/minitiger/index.html");
+  if (m_bundledWebServer && m_bundledWebServer->isRunning())
+  {
+    clientData.insert("bundledMinitigerWebUrl", m_bundledWebServer->baseUrl().toString());
+  }
+  else
+  {
+    qCritical() << "Bundled Minitiger Web server is unavailable";
+    clientData.insert("bundledMinitigerWebUrl", "");
+  }
 #else
   clientData.insert("bundledMinitigerWeb", false);
 #endif
