@@ -522,68 +522,72 @@ void VlcVideoItem::paint(QPainter* painter)
 
     painter->drawImage(target, m_frame);
 
-    // Clickable Phase 1.2 test control bar.
-    const QRectF bar = controlBarRect();
-    painter->setPen(Qt::NoPen);
-    painter->setBrush(QColor(0, 0, 0, 185));
-    painter->drawRoundedRect(bar, 12.0, 12.0);
-
-    const QRectF progress = progressRect();
-    painter->setBrush(QColor(255, 255, 255, 70));
-    painter->drawRoundedRect(progress, 4.0, 4.0);
-
-    const qint64 length = durationMs();
-    const qint64 current = positionMs();
-    if (length > 0)
+    if (m_testControlsVisible)
     {
-        const qreal ratio = qBound<qreal>(0.0, static_cast<qreal>(current) / static_cast<qreal>(length), 1.0);
-        QRectF played = progress;
-        played.setWidth(progress.width() * ratio);
-        painter->setBrush(QColor(255, 184, 74, 230));
-        painter->drawRoundedRect(played, 4.0, 4.0);
-    }
-
-    auto drawButton = [painter](const QRectF& rect, const QString& label, bool active = false) {
+        // Clickable Phase 1.2 test control bar.
+        const QRectF bar = controlBarRect();
         painter->setPen(Qt::NoPen);
-        painter->setBrush(active ? QColor(255, 184, 74, 220) : QColor(255, 255, 255, 32));
-        painter->drawRoundedRect(rect, 8.0, 8.0);
-        painter->setPen(active ? Qt::black : Qt::white);
-        QFont font = painter->font();
-        font.setBold(true);
-        painter->setFont(font);
-        painter->drawText(rect, Qt::AlignCenter, label);
-    };
+        painter->setBrush(QColor(0, 0, 0, 185));
+        painter->drawRoundedRect(bar, 12.0, 12.0);
 
-    const libvlc_state_t state = m_mediaPlayer
-        ? libvlc_media_player_get_state(m_mediaPlayer)
-        : libvlc_NothingSpecial;
+        const QRectF progress = progressRect();
+        painter->setBrush(QColor(255, 255, 255, 70));
+        painter->drawRoundedRect(progress, 4.0, 4.0);
 
-    drawButton(
-        playButtonRect(),
-        state == libvlc_Paused ? QStringLiteral("PLAY") : QStringLiteral("PAUSE"),
-        state == libvlc_Paused);
+        const qint64 length = durationMs();
+        const qint64 current = positionMs();
+        if (length > 0)
+        {
+            const qreal ratio = qBound<qreal>(0.0, static_cast<qreal>(current) / static_cast<qreal>(length), 1.0);
+            QRectF played = progress;
+            played.setWidth(progress.width() * ratio);
+            painter->setBrush(QColor(255, 184, 74, 230));
+            painter->drawRoundedRect(played, 4.0, 4.0);
+        }
 
-    drawButton(backButtonRect(), QStringLiteral("-10s"));
-    drawButton(forwardButtonRect(), QStringLiteral("+10s"));
-    drawButton(muteButtonRect(), muted() ? QStringLiteral("UNMUTE") : QStringLiteral("MUTE"), muted());
-    drawButton(volumeDownButtonRect(), QStringLiteral("-"));
-    drawButton(volumeUpButtonRect(), QStringLiteral("+"));
+        auto drawButton = [painter](const QRectF& rect, const QString& label, bool active = false) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(active ? QColor(255, 184, 74, 220) : QColor(255, 255, 255, 32));
+            painter->drawRoundedRect(rect, 8.0, 8.0);
+            painter->setPen(active ? Qt::black : Qt::white);
+            QFont font = painter->font();
+            font.setBold(true);
+            painter->setFont(font);
+            painter->drawText(rect, Qt::AlignCenter, label);
+        };
 
-    painter->setPen(Qt::white);
-    QFont infoFont = painter->font();
-    infoFont.setBold(false);
-    painter->setFont(infoFont);
+        const libvlc_state_t state = m_mediaPlayer
+            ? libvlc_media_player_get_state(m_mediaPlayer)
+            : libvlc_NothingSpecial;
 
-    const QRectF infoRect(
-        forwardButtonRect().right() + 18.0,
-        playButtonRect().top(),
-        qMax<qreal>(0.0, muteButtonRect().left() - forwardButtonRect().right() - 36.0),
-        40.0);
+        drawButton(
+            playButtonRect(),
+            state == libvlc_Paused ? QStringLiteral("PLAY") : QStringLiteral("PAUSE"),
+            state == libvlc_Paused);
 
-    painter->drawText(
-        infoRect,
-        Qt::AlignLeft | Qt::AlignVCenter,
-        controlOverlayText());
+        drawButton(backButtonRect(), QStringLiteral("-10s"));
+        drawButton(forwardButtonRect(), QStringLiteral("+10s"));
+        drawButton(muteButtonRect(), muted() ? QStringLiteral("UNMUTE") : QStringLiteral("MUTE"), muted());
+        drawButton(volumeDownButtonRect(), QStringLiteral("-"));
+        drawButton(volumeUpButtonRect(), QStringLiteral("+"));
+
+        painter->setPen(Qt::white);
+        QFont infoFont = painter->font();
+        infoFont.setBold(false);
+        painter->setFont(infoFont);
+
+        const QRectF infoRect(
+            forwardButtonRect().right() + 18.0,
+            playButtonRect().top(),
+            qMax<qreal>(0.0, muteButtonRect().left() - forwardButtonRect().right() - 36.0),
+            40.0);
+
+        painter->drawText(
+            infoRect,
+            Qt::AlignLeft | Qt::AlignVCenter,
+            controlOverlayText());
+
+    }
 
     if (!m_receivedFrame.load(std::memory_order_relaxed))
     {
