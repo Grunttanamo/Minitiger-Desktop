@@ -209,6 +209,16 @@ No Minitiger Web sidecar or fixed frontend port is required.
 
 **Windows validation:** the bundled Minitiger Web frontend now loads successfully through the internal localhost server. Full standalone navigation/playback validation with the old :8098 sidecar disabled is still pending.
 
+### Phase 2.1 · Standalone compatibility pass
+
+The first standalone UI validation showed that the bundled frontend loads successfully, but some Minitiger behavior still differs from the server-hosted frontend.
+
+The internal loopback origin is now stable at `http://127.0.0.1:38473/` whenever that port is available. This is required because WebStorage, IndexedDB and service-worker state are scoped to the full origin including the port; using a random port on every launch made each desktop start look like a new browser site.
+
+The Minitiger Web frontend also emits targeted desktop-compatibility diagnostics for layout mode plus Home and Library settings so remaining differences can be traced without guessing.
+
+**Status:** implementation complete; Windows behavior validation pending.
+
 ## Player plan
 
 MPV is **not being removed**.
