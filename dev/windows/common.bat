@@ -44,5 +44,6 @@ if not exist "%BUILD_DIR%" (
 )
 set "PATH=%DEPS_DIR%\mpv;%PATH%"
 if exist "%VLC_DIR%\libvlc.dll" set "PATH=%VLC_DIR%;%PATH%"
+if exist "%VLC_DIR%\plugins" set "VLC_PLUGIN_PATH=%VLC_DIR%\plugins"
 set "PATH=%DEPS_DIR%\qt\%QT_VERSION%\msvc2022_64\bin;%PATH%"
 goto :eof
