@@ -17,6 +17,8 @@
 constexpr int NETWORK_REQUEST_TIMEOUT_MS = 30000;
 constexpr int CONNECTIVITY_RETRY_INTERVAL_MS = 5000;
 
+class BundledWebServer;
+
 class SystemComponent : public ComponentBase
 {
   Q_OBJECT
@@ -140,6 +142,10 @@ private:
   QNetworkReply* m_resolveUrlReply;
   QTimer* m_connectivityRetryTimer;
   QString m_pendingConnectivityUrl;
+
+#ifdef MINITIGER_BUNDLED_WEB
+  BundledWebServer* m_bundledWebServer = nullptr;
+#endif
 
 };
 
