@@ -263,14 +263,18 @@ if not exist "!DEPS_DIR!\mpv\libmpv-2.dll.lib" (
     )
 )
 
-echo [14/14] Generating CMakePresets.json...
+echo [14/15] Generating CMakePresets.json...
 powershell -NoProfile -Command "(Get-Content '!SCRIPT_DIR!..\CMakePresets.json.in' -Raw) -replace '@QT_VERSION@','!QT_VERSION!' -replace '@BREW_PREFIX@','' | Set-Content '!PROJECT_ROOT!\CMakePresets.json' -NoNewline"
 if errorlevel 1 (
     echo ERROR: Failed to generate CMakePresets.json.
     exit /b 1
 )
 
+echo [15/15] Installing Node.js LTS for bundled Minitiger Web...
+winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
+if errorlevel 1 echo Warning: Node.js LTS may already be installed or winget may have returned a non-zero update code.
+
 echo.
 echo Setup complete.
-echo IMPORTANT: If CMake/Ninja were installed during this run, open a NEW PowerShell window before building.
+echo IMPORTANT: If CMake/Ninja/Node.js were installed during this run, open a NEW PowerShell window before building.
 endlocal
