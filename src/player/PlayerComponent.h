@@ -247,6 +247,7 @@ private:
   bool useVlcVideoBackend() const;
   void setVlcSurfaceActive(bool active);
   void updateVlcVideoGeometry();
+  void applyVlcStreamSelections();
   QVariantList findStreamsForURL(const QString &url);
   void reselectStream(const QVariant &streamSelection, MediaType target);
 
@@ -254,6 +255,7 @@ private:
   MpvVideoItem* m_mpvVideoItem = nullptr;
   VlcVideoItem* m_vlcVideoItem = nullptr;
   bool m_vlcPlaybackActive = false;
+  bool m_vlcInitialStreamsApplied = false;
 
   State m_state;
   bool m_paused;
