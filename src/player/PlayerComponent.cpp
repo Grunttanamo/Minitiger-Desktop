@@ -896,6 +896,14 @@ void PlayerComponent::setVideoOnlyMode(bool enable)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::play()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->resumePlayback();
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::play: mpv not initialized yet";
     return;
@@ -979,6 +987,21 @@ void PlayerComponent::notifyVolumeChange(double volume)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::stop()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->stopPlayback();
+    m_inPlayback = false;
+    m_paused = false;
+    m_playbackActive = false;
+    m_playbackCanceled = true;
+    m_playbackError.clear();
+    updatePlaybackState();
+    setVlcSurfaceActive(false);
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::stop: mpv not initialized yet";
     return;
@@ -1001,6 +1024,14 @@ void PlayerComponent::clearQueue()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::pause()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->pausePlayback();
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::pause: mpv not initialized yet";
     return;
@@ -1012,6 +1043,14 @@ void PlayerComponent::pause()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::seekTo(qint64 ms)
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->seekTo(ms);
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::seekTo: mpv not initialized yet";
     return;
@@ -1044,6 +1083,14 @@ void PlayerComponent::setAudioDevice(const QString& name)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::setVolume(int volume)
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->setVolume(volume);
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::setVolume: mpv not initialized yet";
     return;
@@ -1055,6 +1102,11 @@ void PlayerComponent::setVolume(int volume)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int PlayerComponent::volume()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+    return m_vlcVideoItem->volume();
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::volume: mpv not initialized yet";
     return 0;
@@ -1068,6 +1120,14 @@ int PlayerComponent::volume()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::setMuted(bool muted)
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->setMuted(muted);
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::setMuted: mpv not initialized yet";
     return;
@@ -1079,6 +1139,11 @@ void PlayerComponent::setMuted(bool muted)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool PlayerComponent::muted()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+    return m_vlcVideoItem->muted();
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::muted: mpv not initialized yet";
     return false;
@@ -1224,6 +1289,15 @@ void PlayerComponent::reselectStream(const QVariant &streamSelection, MediaType 
 void PlayerComponent::setSubtitleStream(const QVariant &subtitleStream)
 {
   m_currentSubtitleStream = subtitleStream;
+
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive)
+  {
+    qInfo() << "VLC Phase 1.3: runtime subtitle track switching is not wired yet";
+    return;
+  }
+#endif
+
   reselectStream(m_currentSubtitleStream, MediaType::Subtitle);
 }
 
@@ -1231,6 +1305,15 @@ void PlayerComponent::setSubtitleStream(const QVariant &subtitleStream)
 void PlayerComponent::setAudioStream(const QVariant &audioStream)
 {
   m_currentAudioStream = audioStream;
+
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive)
+  {
+    qInfo() << "VLC Phase 1.3: runtime audio track switching is not wired yet";
+    return;
+  }
+#endif
+
   reselectStream(m_currentAudioStream, MediaType::Audio);
 }
 
@@ -1265,11 +1348,21 @@ void PlayerComponent::setSubtitleDelay(qint64 milliseconds)
 /////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::setPlaybackRate(int rate)
 {
+  double speed = rate / 1000.0;
+
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+  {
+    m_vlcVideoItem->setPlaybackRate(speed);
+    emit playbackRateChanged(speed);
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::setPlaybackRate: mpv not initialized yet";
     return;
   }
-  double speed = rate / 1000.0;
   m_mpv->setProperty( "speed", speed);
   emit playbackRateChanged(speed);
 }
@@ -1277,6 +1370,11 @@ void PlayerComponent::setPlaybackRate(int rate)
 /////////////////////////////////////////////////////////////////////////////////////////
 qint64 PlayerComponent::getPosition()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+    return m_vlcVideoItem->positionMs();
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::getPosition: mpv not initialized yet";
     return 0;
@@ -1290,6 +1388,11 @@ qint64 PlayerComponent::getPosition()
 /////////////////////////////////////////////////////////////////////////////////////////
 qint64 PlayerComponent::getDuration()
 {
+#ifdef MINITIGER_ENABLE_VLC
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
+    return m_vlcVideoItem->durationMs();
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::getDuration: mpv not initialized yet";
     return 0;
