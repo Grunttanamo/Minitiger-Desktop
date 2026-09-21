@@ -71,13 +71,12 @@ bool VlcVideoItem::playSource(const QString& source)
 
     releasePlayer();
 
-    QByteArray encoded = QFile::encodeName(source);
     libvlc_media_t* media = nullptr;
 
     QFileInfo fileInfo(source);
     if (fileInfo.exists() && fileInfo.isFile())
     {
-        const QByteArray absolutePath = QFile::encodeName(fileInfo.absoluteFilePath());
+        const QByteArray absolutePath = fileInfo.absoluteFilePath().toUtf8();
         media = libvlc_media_new_path(m_vlc, absolutePath.constData());
         qInfo() << "Minitiger VLC opening local file:" << fileInfo.absoluteFilePath();
     }
@@ -88,7 +87,6 @@ bool VlcVideoItem::playSource(const QString& source)
         qInfo() << "Minitiger VLC opening location:" << source;
     }
 
-    Q_UNUSED(encoded);
 
     if (!media)
     {
@@ -206,7 +204,7 @@ void VlcVideoItem::displayVideo(void* opaque, void* picture)
     Q_UNUSED(picture);
 
     auto* item = static_cast<VlcVideoItem*>(opaque);
-    QMetaObject::invokeMethod(item, "update", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(item, [item]() { item->update(); }, Qt::QueuedConnection);
 }
 
 unsigned VlcVideoItem::setupVideoFormat(void** opaque,
