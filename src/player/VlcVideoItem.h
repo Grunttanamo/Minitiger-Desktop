@@ -10,6 +10,7 @@
 #include <vlc/vlc.h>
 
 class QKeyEvent;
+class QMouseEvent;
 class QPainter;
 
 class VlcVideoItem : public QQuickPaintedItem
@@ -42,6 +43,7 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
 
 private:
     static void* lockVideo(void* opaque, void** planes);
@@ -59,6 +61,15 @@ private:
     void releasePlayer();
     void setError(const QString& error);
     QString controlOverlayText() const;
+
+    QRectF controlBarRect() const;
+    QRectF progressRect() const;
+    QRectF playButtonRect() const;
+    QRectF backButtonRect() const;
+    QRectF forwardButtonRect() const;
+    QRectF muteButtonRect() const;
+    QRectF volumeDownButtonRect() const;
+    QRectF volumeUpButtonRect() const;
 
     libvlc_instance_t* m_vlc = nullptr;
     libvlc_media_player_t* m_mediaPlayer = nullptr;
