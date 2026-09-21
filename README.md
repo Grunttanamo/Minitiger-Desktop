@@ -58,6 +58,7 @@ Current work:
 - [x] Add Phase 1.2 VLC play/pause/seek/volume/mute control prototype
 - [ ] Connect final audio and subtitle track controls
 - [x] Connect basic VLC position/duration/playback state signals to Jellyfin
+- [x] Verify first end-to-end Jellyfin → embedded VLC playback with normal Jellyfin OSD
 - [ ] Finish full Jellyfin progress/resume validation and queue/auto-next
 - [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
 
@@ -138,6 +139,8 @@ The VLC backend currently forwards:
 - playing / paused / ended / error state back to Jellyfin
 
 The normal Jellyfin video OSD remains above the native VLC surface. The old Phase 1.2 debug control bar is only shown when using `--vlc-test`.
+
+**Verified on Windows:** normal Jellyfin video playback successfully reaches the embedded libVLC backend and renders underneath the standard Jellyfin playback OSD.
 
 Current Phase 1.3 limitations:
 
