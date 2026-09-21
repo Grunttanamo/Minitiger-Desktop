@@ -23,15 +23,15 @@ if not exist "!PROJECT_ROOT!\external\mpvqt\src\mpvabstractitem.cpp" (
     popd
 )
 
-echo [1/14] Installing CMake...
+echo [1/15] Installing CMake...
 winget install --id Kitware.CMake --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: CMake may already be installed or winget may have returned a non-zero update code.
 
-echo [2/14] Installing Ninja...
+echo [2/15] Installing Ninja...
 winget install --id Ninja-build.Ninja --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Ninja may already be installed or winget may have returned a non-zero update code.
 
-echo [3/14] Installing 7-Zip...
+echo [3/15] Installing 7-Zip...
 winget install --id 7zip.7zip --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: 7-Zip may already be installed or winget may have returned a non-zero update code.
 
@@ -48,7 +48,7 @@ if not exist "!SEVENZIP!" (
     exit /b 1
 )
 
-echo [4/14] Installing aqtinstall...
+echo [4/15] Installing aqtinstall...
 winget install --id miurahr.aqtinstall --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: aqtinstall may already be installed or winget may have returned a non-zero update code.
 
@@ -74,7 +74,7 @@ if not defined AQT_EXE (
     exit /b 1
 )
 
-echo [5/14] Installing Visual Studio 2022 Build Tools...
+echo [5/15] Installing Visual Studio 2022 Build Tools...
 winget install --id Microsoft.VisualStudio.2022.BuildTools ^
   --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" ^
   --accept-package-agreements --accept-source-agreements --silent
@@ -88,13 +88,13 @@ if not defined VCVARS (
     exit /b 1
 )
 
-echo [6/14] MSVC provides dumpbin/lib; separate MinGW install is not required.
+echo [6/15] MSVC provides dumpbin/lib; separate MinGW install is not required.
 
-echo [7/14] Installing Inno Setup...
+echo [7/15] Installing Inno Setup...
 winget install --id JRSoftware.InnoSetup --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Inno Setup may already be installed or winget may have returned a non-zero update code.
 
-echo [8/14] Installing Qt !QT_VERSION!...
+echo [8/15] Installing Qt !QT_VERSION!...
 if not exist "!DEPS_DIR!\qt\!QT_VERSION!\msvc2022_64" (
     pushd "!DEPS_DIR!"
     "!AQT_EXE!" install-qt windows desktop !QT_VERSION! win64_msvc2022_64 -m qtwebengine qtwebchannel qtpositioning -O "qt"
@@ -108,7 +108,7 @@ if not exist "!DEPS_DIR!\qt\!QT_VERSION!\msvc2022_64" (
     echo Qt already installed, skipping
 )
 
-echo [9/14] Downloading libmpv AVX2...
+echo [9/15] Downloading libmpv AVX2...
 if not exist "!DEPS_DIR!\mpv\libmpv-2.dll" (
     if exist "!DEPS_DIR!\mpv" rmdir /s /q "!DEPS_DIR!\mpv"
     if exist "!DEPS_DIR!\mpv_tmp" rmdir /s /q "!DEPS_DIR!\mpv_tmp"
@@ -152,7 +152,7 @@ if not exist "!DEPS_DIR!\mpv\libmpv-2.dll" (
     echo libmpv already installed, skipping
 )
 
-echo [10/14] Downloading libmpv fallback (non-AVX2)...
+echo [10/15] Downloading libmpv fallback (non-AVX2)...
 if not exist "!DEPS_DIR!\mpv-fallback\libmpv-2.dll" (
     if exist "!DEPS_DIR!\mpv-fallback" rmdir /s /q "!DEPS_DIR!\mpv-fallback"
     if exist "!DEPS_DIR!\mpv-fallback-tmp" rmdir /s /q "!DEPS_DIR!\mpv-fallback-tmp"
@@ -192,7 +192,7 @@ if not exist "!DEPS_DIR!\mpv-fallback\libmpv-2.dll" (
     echo libmpv fallback already installed, skipping
 )
 
-echo [11/14] Downloading VCRedist and WiX tools...
+echo [11/15] Downloading VCRedist and WiX tools...
 if not exist "!DEPS_DIR!\vc_redist.x64.exe" (
     curl -L --fail -o "!DEPS_DIR!\vc_redist.x64.exe" https://aka.ms/vs/17/release/vc_redist.x64.exe
     if errorlevel 1 (
@@ -218,7 +218,7 @@ if not exist "!DEPS_DIR!\wix\dark.exe" (
     del /q "!DEPS_DIR!\wix.zip"
 )
 
-echo [12/14] Extracting VC runtime DLLs...
+echo [12/15] Extracting VC runtime DLLs...
 if not exist "!DEPS_DIR!\vcruntime\*.dll" (
     if exist "!DEPS_DIR!\vcruntime" rmdir /s /q "!DEPS_DIR!\vcruntime"
     if exist "!DEPS_DIR!\vcredist_tmp" rmdir /s /q "!DEPS_DIR!\vcredist_tmp"
@@ -243,7 +243,7 @@ if not exist "!DEPS_DIR!\vcruntime\*.dll" (
     echo VC runtime DLLs extracted to !DEPS_DIR!\vcruntime
 )
 
-echo [13/14] Generating mpv import library...
+echo [13/15] Generating mpv import library...
 if not exist "!DEPS_DIR!\mpv\libmpv-2.dll.lib" (
     call "!VCVARS!" >nul 2>&1
     if errorlevel 1 (
