@@ -12,7 +12,7 @@ dev\windows\setup.bat
 dev\windows\setup-vlc.bat
 ```
 
-If CMake, Ninja, aqtinstall, or other tools were installed during that first run, close the PowerShell window and open a **new** one before building so the updated PATH is available.
+If CMake, Ninja, aqtinstall, Node.js, or other tools were installed during that first run, close the PowerShell window and open a **new** one before building so the updated PATH is available.
 
 ### Build
 ```cmd
@@ -61,6 +61,19 @@ For Phase 1.3, VLC supports the first end-to-end video path with play/pause/stop
 
 Phase 1.4 maps Jellyfin's 1-based relative stream selection to libVLC's actual track IDs. External subtitle Delivery URLs are attached to the active libVLC player as subtitle slaves.
 
+### Phase 2.0 bundled Minitiger Web test
+
+The Windows build now prepares Minitiger Web automatically from:
+
+```text
+https://github.com/Grunttanamo/Minitiger
+branch: minitiger-v12.1
+```
+
+On the first build, `prepare-minitiger-web.bat` clones the frontend under `dev/windows/deps/minitiger-web-src`, runs `npm ci` and `npm run build:production`, then embeds `dist/` into the desktop executable. Later builds skip the npm rebuild while the source commit is unchanged.
+
+After building, start Minitiger Desktop normally and connect it to the **normal Jellyfin Server address** (for example `:8096`). The expected result is that the Minitiger UI opens from the embedded `qrc:///web-client/minitiger/` resources; no sidecar / `:8098` frontend should be required.
+
 ### Unit tests
 ```cmd
 dev\windows\test.bat
@@ -79,6 +92,7 @@ dev\windows\test.bat
 - libmpv (AVX2 build + non-AVX2 fallback)
 - VC++ redistributable files
 - WiX tools used by packaging
+- Node.js LTS (Node 24+ required by Minitiger Web)
 
 Minitiger's additional `setup-vlc.bat` prepares **VLC/libVLC 3.0.23** without installing VLC system-wide. It uses:
 
@@ -98,7 +112,8 @@ Everything stays below `dev/windows/deps/`.
 
 - `setup.bat` - prepare the base Windows/Jellyfin Desktop toolchain
 - `setup-vlc.bat` - prepare Minitiger's experimental libVLC dependency
-- `build.bat` - configure and build with MPV + libVLC linked
+- `prepare-minitiger-web.bat` - sync and build the authoritative Minitiger Web frontend
+- `build.bat` - prepare Minitiger Web, configure the desktop, and build MPV + libVLC + bundled frontend
 - `bundle.bat` - create installer and portable ZIP
 - `run.bat` - run the development executable
 - `test.bat` - run unit tests
