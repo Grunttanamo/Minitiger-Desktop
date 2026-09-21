@@ -21,6 +21,26 @@ foreach(_file ${_files})
   string(APPEND qrc "<qresource prefix=\"/web-client/extension\"><file alias=\"${_rel}\">${_file}</file></qresource>\n")
 endforeach()
 
+if(DEFINED MINITIGER_WEB_DIR AND NOT "${MINITIGER_WEB_DIR}" STREQUAL "")
+  if(NOT EXISTS "${MINITIGER_WEB_DIR}/index.html")
+    message(FATAL_ERROR "Minitiger Web resource directory is missing index.html: ${MINITIGER_WEB_DIR}")
+  endif()
+
+  file(GLOB_RECURSE _minitiger_files "${MINITIGER_WEB_DIR}/*")
+  list(SORT _minitiger_files)
+  foreach(_file ${_minitiger_files})
+    file(RELATIVE_PATH _rel "${MINITIGER_WEB_DIR}" "${_file}")
+    get_filename_component(_rel_dir "${_rel}" DIRECTORY)
+    get_filename_component(_alias "${_rel}" NAME)
+    if(_rel_dir STREQUAL "")
+      set(_prefix "/web-client/minitiger")
+    else()
+      set(_prefix "/web-client/minitiger/${_rel_dir}")
+    endif()
+    string(APPEND qrc "<qresource prefix=\"${_prefix}\"><file alias=\"${_alias}\">${_file}</file></qresource>\n")
+  endforeach()
+endif()
+
 string(APPEND qrc "</RCC>")
 
 # Write qrc to temp file and run rcc
