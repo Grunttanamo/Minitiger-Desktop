@@ -44,6 +44,10 @@ if(ENABLE_VLC)
   )
   add_library(VLC::LibVLC ALIAS MinitigerLibVLC)
 
+  # src/CMakeLists.txt already links EXTRA_LIBS into jmp_core, so registering
+  # libVLC here keeps the existing player build structure untouched.
+  list(APPEND EXTRA_LIBS VLC::LibVLC)
+
   add_compile_definitions(MINITIGER_ENABLE_VLC=1)
 
   message(STATUS "Minitiger experimental libVLC support enabled")
