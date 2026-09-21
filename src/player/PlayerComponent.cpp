@@ -14,6 +14,9 @@
 #include "settings/SettingsSection.h"
 
 #include "MpvVideoItem.h"
+#ifdef MINITIGER_ENABLE_VLC
+#include "VlcVideoItem.h"
+#endif
 #include "AlbumArtProvider.h"
 #include "input/InputComponent.h"
 #include <MpvController>
