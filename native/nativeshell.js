@@ -23,10 +23,19 @@ const getPlugins = () => {
     ];
 
     const mpvEnabled = jmpInfo.settings?.main?.enableMPV !== false;
-    if (mpvEnabled) {
+    const nativeVideoBackend = jmpInfo.settings?.main?.nativeVideoBackend || 'mpv';
+    const nativeVideoEnabled = mpvEnabled || nativeVideoBackend === 'vlc';
+
+    if (nativeVideoEnabled) {
+        const nativePlayers = ['mpvVideoPlayer'];
+
+        // Audio-only playback remains on MPV during the VLC integration phases.
+        if (mpvEnabled) {
+            nativePlayers.push('mpvAudioPlayer');
+        }
+
         return [
-            'mpvVideoPlayer',
-            'mpvAudioPlayer',
+            ...nativePlayers,
             ...basePlugins
         ];
     }
