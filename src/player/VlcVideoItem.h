@@ -6,7 +6,7 @@
 #include <QQuickPaintedItem>
 #include <QString>
 
-#include <vlc/libvlc.h>
+#include <vlc/vlc.h>
 
 class QPainter;
 
