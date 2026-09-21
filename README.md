@@ -160,6 +160,14 @@ Implemented for the VLC backend:
 
 VLC remains experimental; MPV is still the default and fallback.
 
+### Phase 1.5a · VLC image quality
+
+The first VLC renderer still uses the software callback path `libVLC → QImage → Qt Quick`. A Windows comparison showed visibly rougher scaling than MPV, especially on anime line art and subtitles.
+
+Phase 1.5a forces Qt's smooth image transformation and pixel-aligns the destination rectangle before drawing the VLC frame. This improves resize/downscale quality without changing the working Jellyfin/VLC integration.
+
+If quality still does not match MPV after validation, the next step is a scene-graph/GPU texture renderer instead of the current `QQuickPaintedItem` software surface.
+
 ## Player plan
 
 MPV is **not being removed**.
