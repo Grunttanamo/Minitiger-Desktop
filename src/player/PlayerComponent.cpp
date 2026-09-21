@@ -233,8 +233,58 @@ void PlayerComponent::setVideoRectangle(int x, int y, int w, int h)
   if (rc != m_videoRectangle)
   {
     m_videoRectangle = rc;
+    updateVlcVideoGeometry();
     emit onVideoRecangleChanged();
   }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool PlayerComponent::useVlcVideoBackend() const
+{
+#ifdef MINITIGER_ENABLE_VLC
+  return SettingsComponent::Get().value(SETTINGS_SECTION_MAIN, "nativeVideoBackend").toString() == "vlc";
+#else
+  return false;
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void PlayerComponent::setVlcSurfaceActive(bool active)
+{
+#ifdef MINITIGER_ENABLE_VLC
+  m_vlcPlaybackActive = active;
+
+  if (m_vlcVideoItem)
+  {
+    m_vlcVideoItem->setVisible(active);
+    m_vlcVideoItem->setEnabled(active);
+    if (active)
+      m_vlcVideoItem->forceActiveFocus();
+  }
+
+  if (m_mpvVideoItem)
+    m_mpvVideoItem->setVisible(!active);
+#else
+  Q_UNUSED(active);
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void PlayerComponent::updateVlcVideoGeometry()
+{
+#ifdef MINITIGER_ENABLE_VLC
+  if (!m_vlcVideoItem || !m_window)
+    return;
+
+  QRect rc = m_videoRectangle;
+  if (rc.x() < 0 || rc.width() <= 0 || rc.height() <= 0)
+    rc = QRect(0, 0, m_window->width(), m_window->height());
+
+  m_vlcVideoItem->setX(rc.x());
+  m_vlcVideoItem->setY(rc.y());
+  m_vlcVideoItem->setWidth(rc.width());
+  m_vlcVideoItem->setHeight(rc.height());
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
