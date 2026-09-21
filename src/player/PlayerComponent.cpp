@@ -404,6 +404,52 @@ bool PlayerComponent::load(const QString& url, const QVariantMap& options, const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::queueMedia(const QString& url, const QVariantMap& options, const QVariantMap &metadata, const QVariant& audioStream, const QVariant& subtitleStream)
 {
+#ifdef MINITIGER_ENABLE_VLC
+  const bool isVideo = metadata["type"].toString() == "video";
+  if (useVlcVideoBackend() && isVideo)
+  {
+    if (!m_vlcVideoItem)
+    {
+      qWarning() << "PlayerComponent::queueMedia: VLC surface not initialized yet";
+      return;
+    }
+
+    InputComponent::Get().cancelAutoRepeat();
+
+    m_mediaFrameRate = metadata["frameRate"].toFloat();
+    m_serverMediaInfo = metadata["media"].toMap();
+    m_currentSubtitleStream = subtitleStream;
+    m_currentAudioStream = audioStream;
+
+    const qint64 startMilliseconds = options["startMilliseconds"].toLongLong();
+    const bool autoplay = options["autoplay"].toBool();
+    const QString userAgent = metadata["headers"].toMap()["User-Agent"].toString();
+
+    qInfo() << "Minitiger native video backend: VLC (Experimental)";
+    setVlcSurfaceActive(true);
+
+    if (!m_vlcVideoItem->playSource(url, startMilliseconds, autoplay, userAgent))
+    {
+      m_inPlayback = false;
+      m_playbackActive = false;
+      m_playbackCanceled = false;
+      m_playbackError = m_vlcVideoItem->lastError();
+      updatePlaybackState();
+      setVlcSurfaceActive(false);
+      return;
+    }
+
+    QVariantMap jellyfinMetadata = metadata["metadata"].toMap();
+    QUrl jellyfinBaseUrl = QUrl(url).adjusted(QUrl::RemovePath | QUrl::RemoveQuery);
+    emit onMetaData(jellyfinMetadata, jellyfinBaseUrl);
+
+    if (m_albumArtProvider)
+      m_albumArtProvider->requestArtwork(jellyfinMetadata, jellyfinBaseUrl);
+
+    return;
+  }
+#endif
+
   if (!m_mpv) {
     qWarning() << "PlayerComponent::queueMedia: mpv not initialized yet";
     return;
