@@ -9,6 +9,20 @@ set "SEVENZIP=C:\Program Files\7-Zip\7z.exe"
 
 if not exist "!DEPS_DIR!" mkdir "!DEPS_DIR!"
 
+REM Jellyfin Desktop keeps MpvQt as a git submodule. A normal git clone does
+REM not populate it, so prepare submodules before CMake sees external/mpvqt.
+if not exist "!PROJECT_ROOT!\external\mpvqt\src\mpvabstractitem.cpp" (
+    echo Preparing git submodules...
+    pushd "!PROJECT_ROOT!"
+    git submodule update --init --recursive
+    if errorlevel 1 (
+        popd
+        echo ERROR: Failed to initialize git submodules.
+        exit /b 1
+    )
+    popd
+)
+
 echo [1/14] Installing CMake...
 winget install --id Kitware.CMake --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: CMake may already be installed or winget may have returned a non-zero update code.
