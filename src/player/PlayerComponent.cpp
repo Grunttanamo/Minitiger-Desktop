@@ -297,6 +297,73 @@ void PlayerComponent::setQtQuickWindow(QQuickWindow* window)
     throw FatalException(tr("Failed to load video element."));
   }
 
+  m_mpvVideoItem = video;
+
+#ifdef MINITIGER_ENABLE_VLC
+  if (!m_vlcVideoItem)
+  {
+    m_vlcVideoItem = new VlcVideoItem(window->contentItem());
+    m_vlcVideoItem->setObjectName("vlcVideo");
+    m_vlcVideoItem->setZ(1);
+    m_vlcVideoItem->setVisible(false);
+    m_vlcVideoItem->setEnabled(false);
+    updateVlcVideoGeometry();
+
+    connect(window, &QQuickWindow::widthChanged, this, [this]() {
+      updateVlcVideoGeometry();
+    });
+    connect(window, &QQuickWindow::heightChanged, this, [this]() {
+      updateVlcVideoGeometry();
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::playbackStarted, this, [this]() {
+      m_inPlayback = true;
+      m_paused = false;
+      m_playbackActive = true;
+      m_playbackCanceled = false;
+      m_playbackError.clear();
+      m_windowVisible = true;
+      emit windowVisible(true);
+      updatePlaybackState();
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::playbackPaused, this, [this]() {
+      m_inPlayback = true;
+      m_paused = true;
+      m_playbackActive = false;
+      updatePlaybackState();
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::playbackFinished, this, [this]() {
+      m_inPlayback = false;
+      m_paused = false;
+      m_playbackActive = false;
+      m_playbackCanceled = false;
+      m_playbackError.clear();
+      updatePlaybackState();
+      setVlcSurfaceActive(false);
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::playbackError, this, [this](const QString& message) {
+      m_inPlayback = false;
+      m_paused = false;
+      m_playbackActive = false;
+      m_playbackCanceled = false;
+      m_playbackError = message;
+      updatePlaybackState();
+      setVlcSurfaceActive(false);
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::positionChanged, this, [this](qint64 milliseconds) {
+      emit positionUpdate(static_cast<quint64>(qMax<qint64>(0, milliseconds)));
+    });
+
+    connect(m_vlcVideoItem, &VlcVideoItem::durationChanged, this, [this](qint64 milliseconds) {
+      emit updateDuration(milliseconds);
+    });
+  }
+#endif
+
   qDebug() << "Found MpvVideoItem, calling setPlayerComponent";
   video->setPlayerComponent(this);
 }
