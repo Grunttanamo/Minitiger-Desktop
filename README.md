@@ -51,15 +51,31 @@ Current work:
 - [x] Add Windows libVLC 3.0.23 dependency setup
 - [x] Prepare Windows runtime bundling for libVLC
 - [x] Keep MPV unchanged as the active player
-- [ ] Verify the first Windows build on the Minitiger branch
-- [ ] Add a native VLC video surface
+- [x] Verify the first Windows build on the Minitiger branch
+- [x] Add the first experimental embedded VLC software video surface
 - [ ] Add the native VLC player backend
 - [ ] Add MPV / VLC player selection
 - [ ] Connect play, pause, seek, volume, audio and subtitle controls
 - [ ] Connect Jellyfin progress, resume and playback reporting
 - [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
 
-**Important:** having libVLC in the build does not mean VLC playback is working yet. Phase 1.0 only establishes the native dependency and build foundation.
+**Phase 1.0 is verified:** the Windows build completes, Minitiger Desktop starts, and the existing MPV playback path still works.
+
+### Phase 1.1 · Embedded VLC surface proof
+
+Phase 1.1 adds an isolated developer test mode for the first embedded libVLC video surface. It does **not** replace MPV or intercept normal Jellyfin playback yet.
+
+After rebuilding, launch a local media file through libVLC with:
+
+```powershell
+.\dev\windows\run.bat --vlc-test "C:\Path\To\video.mkv"
+```
+
+In this test mode the normal WebEngine and MPV visual layers are hidden and libVLC decodes into a Qt Quick surface inside the same Minitiger Desktop window.
+
+This first surface intentionally uses VLC video callbacks and a Qt image buffer. It is a proof that libVLC can render inside our existing Qt window. Hardware-optimized rendering and the real MPV/VLC selector come later.
+
+Normal startup without `--vlc-test` continues to use the existing Jellyfin Desktop / MPV path.
 
 ## Player plan
 
