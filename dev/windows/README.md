@@ -43,6 +43,18 @@ Phase 1.2 test controls:
 
 The isolated VLC test starts at 40% volume.
 
+### Phase 1.3 Jellyfin playback test
+
+After rebuilding, start Minitiger Desktop normally:
+
+```powershell
+.\dev\windows\run.bat
+```
+
+Open **Client Settings** and set **Native Video Player** to **VLC (Experimental)**. Then start a normal video from Jellyfin.
+
+For Phase 1.3, VLC supports the first end-to-end video path with play/pause/stop, seek, volume/mute, playback rate, start position, and position/duration/state reporting. Audio and subtitle track switching are still pending. MPV remains the default.
+
 ### Unit tests
 ```cmd
 dev\windows\test.bat
