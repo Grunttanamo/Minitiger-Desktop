@@ -20,6 +20,7 @@ echo Starting Minitiger Desktop with debug logging...
 start "" "%APP_EXE%" --log-level debug %*
 
 echo Waiting for the Minitiger Desktop log file...
+timeout /t 1 /nobreak >nul
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$roots = @((Join-Path $env:LOCALAPPDATA 'Minitiger Desktop'), (Join-Path $env:APPDATA 'Minitiger Desktop'));" ^
   "$log = $null;" ^
