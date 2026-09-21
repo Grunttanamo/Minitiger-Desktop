@@ -18,6 +18,13 @@ if not exist "%PROJECT_ROOT%\external\mpvqt\src\mpvabstractitem.cpp" (
     popd
 )
 
+REM === Prepare bundled Minitiger Web ===
+call "%~dp0prepare-minitiger-web.bat"
+if errorlevel 1 (
+    echo ERROR: Bundled Minitiger Web preparation failed.
+    exit /b 1
+)
+
 REM === Check dependencies ===
 if not exist "%DEPS_DIR%\mpv\libmpv-2.dll" (
     echo ERROR: libmpv not found. Run dev\windows\setup.bat first.
@@ -103,6 +110,7 @@ if not exist "%DEPS_DIR%\mpv\libmpv-2.dll.lib" (
 REM === Configure ===
 set "DEPS_CMAKE=%DEPS_DIR:\=/%"
 set "VLC_CMAKE=%VLC_DIR:\=/%"
+set "MINITIGER_WEB_CMAKE=%MINITIGER_WEB_DIST_DIR:\=/%"
 
 echo Configuring...
 cmake -GNinja ^
@@ -115,6 +123,8 @@ cmake -GNinja ^
     -DVLC_INCLUDE_DIR="%VLC_CMAKE%/include" ^
     -DVLC_LIBRARY="%VLC_CMAKE%/lib/libvlc.lib" ^
     -DVLC_RUNTIME_DIR="%VLC_CMAKE%" ^
+    -DENABLE_BUNDLED_MINITIGER_WEB=ON ^
+    -DMINITIGER_WEB_DIR="%MINITIGER_WEB_CMAKE%" ^
     -DCHECK_FOR_UPDATES=ON ^
     -DUSE_STATIC_MPVQT=ON ^
     "%PROJECT_ROOT%"
