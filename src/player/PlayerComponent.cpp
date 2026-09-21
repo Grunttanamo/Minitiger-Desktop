@@ -305,6 +305,7 @@ void PlayerComponent::setQtQuickWindow(QQuickWindow* window)
     m_vlcVideoItem = new VlcVideoItem(window->contentItem());
     m_vlcVideoItem->setObjectName("vlcVideo");
     m_vlcVideoItem->setZ(1);
+    m_vlcVideoItem->setTestControlsVisible(false);
     m_vlcVideoItem->setVisible(false);
     m_vlcVideoItem->setEnabled(false);
     updateVlcVideoGeometry();
