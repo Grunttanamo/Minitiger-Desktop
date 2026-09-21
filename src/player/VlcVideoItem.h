@@ -59,6 +59,7 @@ Q_SIGNALS:
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
     static void* lockVideo(void* opaque, void** planes);
@@ -97,6 +98,8 @@ private:
     QString m_source;
     QString m_status = QStringLiteral("VLC surface ready - waiting for media");
     std::atomic_bool m_receivedFrame { false };
+    std::atomic_int m_requestedOutputWidth { 0 };
+    std::atomic_int m_requestedOutputHeight { 0 };
     unsigned m_videoWidth = 0;
     unsigned m_videoHeight = 0;
     int m_volume = 40;
