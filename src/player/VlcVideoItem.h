@@ -25,7 +25,7 @@ public:
 
     void paint(QPainter* painter) override;
 
-    Q_INVOKABLE bool playSource(const QString& source, qint64 startMilliseconds = 0, bool autoplay = true);
+    Q_INVOKABLE bool playSource(const QString& source, qint64 startMilliseconds = 0, bool autoplay = true, const QString& userAgent = QString());
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void pausePlayback();
     Q_INVOKABLE void resumePlayback();
