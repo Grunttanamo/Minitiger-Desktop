@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QQuickPaintedItem>
 #include <QString>
+#include <atomic>
 
 #include <vlc/vlc.h>
 
@@ -49,6 +50,8 @@ private:
     QImage m_frame;
     QMutex m_frameMutex;
     QString m_lastError;
+    QString m_status = QStringLiteral("VLC surface ready - waiting for media");
+    std::atomic_bool m_receivedFrame { false };
     unsigned m_videoWidth = 0;
     unsigned m_videoHeight = 0;
 };
