@@ -538,6 +538,7 @@ int main(int argc, char *argv[])
         vlcVideo->setY(0);
         vlcVideo->setWidth(window->width());
         vlcVideo->setHeight(window->height());
+        vlcVideo->forceActiveFocus();
 
         QObject::connect(window, &QQuickWindow::widthChanged, vlcVideo,
                          [vlcVideo](int width) { vlcVideo->setWidth(width); });
