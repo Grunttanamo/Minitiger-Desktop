@@ -41,6 +41,7 @@ public:
     Q_INVOKABLE void setMuted(bool muted);
     Q_INVOKABLE bool muted() const;
     Q_INVOKABLE void setPlaybackRate(double rate);
+    Q_INVOKABLE void setTestControlsVisible(bool visible) { m_testControlsVisible = visible; update(); }
 
     QString lastError() const { return m_lastError; }
 
@@ -100,6 +101,7 @@ private:
     qint64 m_pendingStartMs = 0;
     bool m_pendingAutoplay = true;
     bool m_pendingInitialSeek = false;
+    bool m_testControlsVisible = true;
 };
 
 #endif // VLCVIDEOITEM_H
