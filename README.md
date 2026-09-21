@@ -98,7 +98,7 @@ Space   Pause / Play
 M       Mute / Unmute
 ```
 
-A small in-video diagnostic overlay shows the VLC state, playback position, duration, volume and mute state. These controls are still developer-only; the next integration step is to route the normal Minitiger/Jellyfin player controls through the selectable native backend.
+A clickable in-video test control bar now provides Play/Pause, ±10 second seek, clickable timeline seeking, mute, and volume controls. The keyboard shortcuts remain available as a second test path. These controls are still developer-only; the next integration step is to route the normal Minitiger/Jellyfin player controls through the selectable native backend.
 
 ## Player plan
 
