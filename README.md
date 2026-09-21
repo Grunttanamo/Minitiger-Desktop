@@ -207,7 +207,7 @@ The first `qrc://` runtime attempt successfully loaded the embedded frontend and
 
 No Minitiger Web sidecar or fixed frontend port is required.
 
-**Status:** internal localhost delivery is implemented; Windows validation is pending.
+**Windows validation:** the bundled Minitiger Web frontend now loads successfully through the internal localhost server. Full standalone navigation/playback validation with the old :8098 sidecar disabled is still pending.
 
 ## Player plan
 
