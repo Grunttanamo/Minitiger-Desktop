@@ -66,6 +66,7 @@ add_custom_target(generate_resources ALL
           -DRCC=${Qt6Core_RCC_EXECUTABLE}
           -DRESOURCES_DIR=${CMAKE_SOURCE_DIR}/resources
           -DNATIVE_DIR=${CMAKE_SOURCE_DIR}/native
+          -DMINITIGER_WEB_DIR=${MINITIGER_WEB_DIR}
           -P ${CMAKE_SOURCE_DIR}/CMakeModules/GenerateQtResources.cmake
   BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/qrc_resources.cpp
   VERBATIM
