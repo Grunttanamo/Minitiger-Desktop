@@ -5,7 +5,7 @@
 > [!WARNING]
 > **Minitiger Desktop is currently early experimental development software.**
 >
-> Native VLC playback is **not finished**, the Minitiger Web frontend is **not bundled yet**, and there is currently **no stable Minitiger Desktop release**.
+> Native VLC playback and bundled Minitiger Web integration are still **experimental**, and there is currently **no stable Minitiger Desktop release**.
 > Do not expect this branch to be suitable for normal daily use yet.
 
 ## Current development branch
@@ -60,7 +60,7 @@ Current work:
 - [x] Connect basic VLC position/duration/playback state signals to Jellyfin
 - [x] Verify first end-to-end Jellyfin → embedded VLC playback with normal Jellyfin OSD
 - [x] Verify Jellyfin progress/resume, episode end and queue/auto-next with VLC
-- [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
+- [x] Add Phase 2.0 build path for bundling Minitiger Web directly into Minitiger Desktop (Windows validation pending)
 
 **Phase 1.0 is verified:** the Windows build completes, Minitiger Desktop starts, and the existing MPV playback path still works.
 
@@ -175,6 +175,38 @@ This is especially relevant to subtitles because libVLC 3's custom-memory callba
 **Validated on Windows:** the display-sized callback path produces a visibly cleaner result and removes the previously obvious pixelation on subtitles and fine anime line art. The current software renderer is now considered good enough for the Phase 1 VLC backend.
 
 A future GPU/scene-graph renderer is optional optimization work rather than a blocker.
+
+## Bundled Minitiger Web · Phase 2.0
+
+Phase 2.0 begins the standalone-client transition.
+
+The authoritative frontend remains:
+
+```text
+Grunttanamo/Minitiger
+branch: minitiger-v12.1
+```
+
+During a Windows desktop build, `dev/windows/prepare-minitiger-web.bat` clones or updates that branch, runs the production web build, and passes its `dist/` directory to CMake. Qt's resource compiler then embeds the complete built frontend into the desktop executable under:
+
+```text
+qrc:///web-client/minitiger/
+```
+
+The desktop connection screen still asks for / remembers a normal Jellyfin Server address. When the bundled frontend is enabled, a successful connection opens the embedded Minitiger Web `index.html` instead of navigating to the server-hosted Jellyfin Web UI.
+
+Minitiger Web receives the saved Jellyfin server address through the native shell, so the intended runtime becomes:
+
+```text
+Minitiger Desktop
+├── bundled Minitiger Web
+├── MPV / libVLC
+└── normal Jellyfin Server (for example :8096)
+```
+
+No Minitiger Web sidecar or separate frontend port should be needed once this phase is validated.
+
+**Status:** implementation is in the development branch; the first Windows compile/runtime validation is still pending.
 
 ## Player plan
 
