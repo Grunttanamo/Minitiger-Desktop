@@ -34,6 +34,15 @@ Normal startup still uses MPV. To test the isolated embedded libVLC surface with
 
 The test hides the normal WebEngine/MPV visual layers for that run and renders VLC frames into a Qt Quick item inside the same desktop window. This is a software-frame proof-of-concept, not the final optimized VLC renderer.
 
+Phase 1.2 test controls:
+
+- `Space` - pause / resume
+- `Left` / `Right` - seek 10 seconds
+- `Up` / `Down` - volume by 5
+- `M` - mute / unmute
+
+The isolated VLC test starts at 40% volume.
+
 ### Unit tests
 ```cmd
 dev\windows\test.bat
