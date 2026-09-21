@@ -1,11 +1,16 @@
 @echo off
-REM Jellyfin Desktop - Common variables
+REM Minitiger Desktop / Jellyfin Desktop - Common Windows variables
 REM Sourced by other scripts
 
 set QT_VERSION=6.10.1
-set MPV_RELEASE=20260223
-set MPV_VERSION=20260223-git-f439c7f
+
+REM Pinned to a currently published shinchiro mpv-winbuild-cmake release.
+REM The previous upstream 20260223 tag no longer exists.
+set MPV_RELEASE=20260921
+set MPV_VERSION=20260921-git-e76a35ec95
+
 set VLC_VERSION=3.0.23
+
 set SCRIPT_DIR=%~dp0
 for %%i in ("%SCRIPT_DIR%\..\..") do set "PROJECT_ROOT=%%~fi"
 set DEPS_DIR=%SCRIPT_DIR%deps
