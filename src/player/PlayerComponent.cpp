@@ -287,6 +287,44 @@ void PlayerComponent::updateVlcVideoGeometry()
 #endif
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void PlayerComponent::applyVlcStreamSelections()
+{
+#ifdef MINITIGER_ENABLE_VLC
+  if (!m_vlcPlaybackActive || !m_vlcVideoItem)
+    return;
+
+  bool audioOk = false;
+  const int audioRelativeIndex = m_currentAudioStream.toInt(&audioOk);
+  if (audioOk && audioRelativeIndex > 0)
+  {
+    if (!m_vlcVideoItem->setAudioTrackRelative(audioRelativeIndex))
+      qWarning() << "VLC Phase 1.4: failed to apply audio stream" << m_currentAudioStream;
+  }
+
+  const QString subtitleSelection = m_currentSubtitleStream.toString();
+  if (subtitleSelection.startsWith("#,"))
+  {
+    const QString subtitleUrl = subtitleSelection.mid(2);
+    if (!m_vlcVideoItem->addExternalSubtitle(subtitleUrl))
+      qWarning() << "VLC Phase 1.4: failed to add external subtitle" << subtitleUrl;
+    return;
+  }
+
+  bool subtitleOk = false;
+  const int subtitleRelativeIndex = m_currentSubtitleStream.toInt(&subtitleOk);
+  if (!subtitleOk || subtitleRelativeIndex < 0)
+  {
+    m_vlcVideoItem->setSubtitleTrackRelative(-1);
+    return;
+  }
+
+  if (!m_vlcVideoItem->setSubtitleTrackRelative(subtitleRelativeIndex))
+    qWarning() << "VLC Phase 1.4: failed to apply subtitle stream" << m_currentSubtitleStream;
+#endif
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void PlayerComponent::setQtQuickWindow(QQuickWindow* window)
 {
@@ -325,6 +363,13 @@ void PlayerComponent::setQtQuickWindow(QQuickWindow* window)
       m_playbackError.clear();
       m_windowVisible = true;
       emit windowVisible(true);
+
+      if (!m_vlcInitialStreamsApplied)
+      {
+        applyVlcStreamSelections();
+        m_vlcInitialStreamsApplied = true;
+      }
+
       updatePlaybackState();
     });
 
@@ -421,6 +466,7 @@ void PlayerComponent::queueMedia(const QString& url, const QVariantMap& options,
     m_serverMediaInfo = metadata["media"].toMap();
     m_currentSubtitleStream = subtitleStream;
     m_currentAudioStream = audioStream;
+    m_vlcInitialStreamsApplied = false;
 
     const qint64 startMilliseconds = options["startMilliseconds"].toLongLong();
     const bool autoplay = options["autoplay"].toBool();
@@ -1292,9 +1338,28 @@ void PlayerComponent::setSubtitleStream(const QVariant &subtitleStream)
   m_currentSubtitleStream = subtitleStream;
 
 #ifdef MINITIGER_ENABLE_VLC
-  if (m_vlcPlaybackActive)
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
   {
-    qInfo() << "VLC Phase 1.3: runtime subtitle track switching is not wired yet";
+    const QString selection = subtitleStream.toString();
+
+    if (selection.startsWith("#,"))
+    {
+      const QString subtitleUrl = selection.mid(2);
+      if (!m_vlcVideoItem->addExternalSubtitle(subtitleUrl))
+        qWarning() << "VLC Phase 1.4: external subtitle switch failed:" << subtitleUrl;
+      return;
+    }
+
+    bool ok = false;
+    const int relativeIndex = subtitleStream.toInt(&ok);
+    if (!ok || relativeIndex < 0)
+    {
+      m_vlcVideoItem->setSubtitleTrackRelative(-1);
+      return;
+    }
+
+    if (!m_vlcVideoItem->setSubtitleTrackRelative(relativeIndex))
+      qWarning() << "VLC Phase 1.4: subtitle track switch failed:" << subtitleStream;
     return;
   }
 #endif
@@ -1308,9 +1373,12 @@ void PlayerComponent::setAudioStream(const QVariant &audioStream)
   m_currentAudioStream = audioStream;
 
 #ifdef MINITIGER_ENABLE_VLC
-  if (m_vlcPlaybackActive)
+  if (m_vlcPlaybackActive && m_vlcVideoItem)
   {
-    qInfo() << "VLC Phase 1.3: runtime audio track switching is not wired yet";
+    bool ok = false;
+    const int relativeIndex = audioStream.toInt(&ok);
+    if (!ok || relativeIndex <= 0 || !m_vlcVideoItem->setAudioTrackRelative(relativeIndex))
+      qWarning() << "VLC Phase 1.4: audio track switch failed:" << audioStream;
     return;
   }
 #endif
