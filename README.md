@@ -53,11 +53,12 @@ Current work:
 - [x] Keep MPV unchanged as the active player
 - [x] Verify the first Windows build on the Minitiger branch
 - [x] Add the first experimental embedded VLC software video surface
-- [ ] Add the native VLC player backend
-- [ ] Add MPV / VLC player selection
+- [x] Add the first native VLC player backend path
+- [x] Add local MPV / VLC video backend selection
 - [x] Add Phase 1.2 VLC play/pause/seek/volume/mute control prototype
 - [ ] Connect final audio and subtitle track controls
-- [ ] Connect Jellyfin progress, resume and playback reporting
+- [x] Connect basic VLC position/duration/playback state signals to Jellyfin
+- [ ] Finish full Jellyfin progress/resume validation and queue/auto-next
 - [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
 
 **Phase 1.0 is verified:** the Windows build completes, Minitiger Desktop starts, and the existing MPV playback path still works.
@@ -99,6 +100,52 @@ M       Mute / Unmute
 ```
 
 A clickable in-video test control bar now provides Play/Pause, ±10 second seek, clickable timeline seeking, mute, and volume controls. The keyboard shortcuts remain available as a second test path. These controls are still developer-only; the next integration step is to route the normal Minitiger/Jellyfin player controls through the selectable native backend.
+
+### Phase 1.3 · Jellyfin → VLC integration
+
+Phase 1.3 connects the existing Jellyfin native-player bridge to the embedded VLC surface.
+
+Open **Client Settings** in Minitiger Desktop and select:
+
+```text
+Native Video Player
+└── VLC (Experimental)
+```
+
+Then play a normal video from Jellyfin. No `--vlc-test` argument is needed.
+
+The intended Phase 1.3 path is:
+
+```text
+Jellyfin Web
+    ↓
+native player bridge
+    ↓
+PlayerComponent
+    ├── MPV (default)
+    └── VLC (experimental)
+```
+
+The VLC backend currently forwards:
+
+- Jellyfin video URLs directly to libVLC
+- start/resume position
+- play / pause / stop
+- seeking
+- volume and mute
+- playback speed
+- position and duration updates
+- playing / paused / ended / error state back to Jellyfin
+
+The normal Jellyfin video OSD remains above the native VLC surface. The old Phase 1.2 debug control bar is only shown when using `--vlc-test`.
+
+Current Phase 1.3 limitations:
+
+- audio track switching is not wired to VLC yet
+- subtitle track switching is not wired to VLC yet
+- queue / auto-next still needs validation
+- progress / resume reporting still needs an end-to-end Jellyfin test
+- VLC remains experimental; MPV is still the default and fallback
 
 ## Player plan
 
