@@ -172,8 +172,19 @@
       {
         "value": "enableMPV",
         "display_name": "Enable MPV Player",
-        "help": "Enables MPV player for video and audio playback. When disabled, Jellyfin will fall back to the browser's built-in HTML5 player. This setting requires an application restart to take effect.\n\nNote: Disabling MPV will lose advanced features like audio passthrough, hardware decoding options, and codec-specific settings.",
+        "help": "Enables the native player bridge. MPV remains the audio backend and the safe fallback while VLC support is experimental. This setting requires an application restart to take effect.",
         "default": true
+      },
+      {
+        "value": "nativeVideoBackend",
+        "display_name": "Native Video Player",
+        "help": "Selects the native video engine used by Minitiger Desktop. MPV is the stable default. VLC is experimental and currently supports basic Jellyfin video playback, play/pause, seek, volume, mute, progress and resume reporting. Audio/subtitle track switching is still being integrated.",
+        "default": "mpv",
+        "platforms": [ "windows" ],
+        "possible_values": [
+          [ "mpv", "MPV (Default)" ],
+          [ "vlc", "VLC (Experimental)" ]
+        ]
       },
       {
         "value": "allowBrowserZoom",
