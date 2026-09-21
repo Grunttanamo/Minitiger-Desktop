@@ -185,6 +185,15 @@ void VlcVideoItem::paint(QPainter* painter)
         targetSize.height());
 
     painter->drawImage(target, m_frame);
+
+    if (!m_receivedFrame.load(std::memory_order_relaxed))
+    {
+        painter->setPen(Qt::white);
+        painter->drawText(
+            boundingRect().adjusted(24, 24, -24, -24),
+            Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+            QStringLiteral("Minitiger libVLC Surface Test\n\n%1").arg(m_status));
+    }
 }
 
 void* VlcVideoItem::lockVideo(void* opaque, void** planes)
