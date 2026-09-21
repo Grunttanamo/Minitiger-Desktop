@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QFileInfo>
+#include <QKeyEvent>
 #include <QMetaObject>
 #include <QMutexLocker>
 #include <QPainter>
@@ -9,11 +10,54 @@
 
 #include <cstring>
 
+namespace
+{
+QString formatTimeMs(qint64 value)
+{
+    if (value < 0)
+        value = 0;
+
+    const qint64 totalSeconds = value / 1000;
+    const qint64 hours = totalSeconds / 3600;
+    const qint64 minutes = (totalSeconds % 3600) / 60;
+    const qint64 seconds = totalSeconds % 60;
+
+    if (hours > 0)
+        return QStringLiteral("%1:%2:%3")
+            .arg(hours)
+            .arg(minutes, 2, 10, QLatin1Char('0'))
+            .arg(seconds, 2, 10, QLatin1Char('0'));
+
+    return QStringLiteral("%1:%2")
+        .arg(minutes)
+        .arg(seconds, 2, 10, QLatin1Char('0'));
+}
+
+QString stateName(libvlc_state_t state)
+{
+    switch (state)
+    {
+    case libvlc_Opening: return QStringLiteral("Opening");
+    case libvlc_Buffering: return QStringLiteral("Buffering");
+    case libvlc_Playing: return QStringLiteral("Playing");
+    case libvlc_Paused: return QStringLiteral("Paused");
+    case libvlc_Stopped: return QStringLiteral("Stopped");
+    case libvlc_Ended: return QStringLiteral("Ended");
+    case libvlc_Error: return QStringLiteral("Error");
+    case libvlc_NothingSpecial:
+    default:
+        return QStringLiteral("Idle");
+    }
+}
+}
+
 VlcVideoItem::VlcVideoItem(QQuickItem* parent)
     : QQuickPaintedItem(parent)
 {
     setAntialiasing(false);
     setOpaquePainting(true);
+    setFlag(QQuickItem::ItemIsFocusScope, true);
+    setFocus(true);
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
 
@@ -72,6 +116,13 @@ bool VlcVideoItem::playSource(const QString& source)
 
     releasePlayer();
 
+    {
+        QMutexLocker locker(&m_frameMutex);
+        m_frame = QImage();
+        m_videoWidth = 0;
+        m_videoHeight = 0;
+    }
+
     libvlc_media_t* media = nullptr;
 
     QFileInfo fileInfo(source);
@@ -86,8 +137,6 @@ bool VlcVideoItem::playSource(const QString& source)
         qInfo() << "Minitiger VLC opening local file:" << absolutePath;
         qInfo() << "Minitiger VLC file URL:" << location;
 
-        // Use an explicit file:// URL instead of libvlc_media_new_path().
-        // This is more robust on Windows for spaces and non-ASCII paths.
         media = libvlc_media_new_location(m_vlc, location.constData());
     }
     else
@@ -130,6 +179,11 @@ bool VlcVideoItem::playSource(const QString& source)
         &VlcVideoItem::setupVideoFormat,
         &VlcVideoItem::cleanupVideoFormat);
 
+    // Phase 1.2 test default: intentionally start below VLC's full volume.
+    // This will later be replaced by Minitiger/Jellyfin's stored device volume.
+    libvlc_audio_set_volume(m_mediaPlayer, m_volume);
+    libvlc_audio_set_mute(m_mediaPlayer, 0);
+
     m_status = QStringLiteral("Opening media with libVLC...");
     m_receivedFrame.store(false, std::memory_order_relaxed);
     update();
@@ -144,20 +198,45 @@ bool VlcVideoItem::playSource(const QString& source)
 
     m_lastError.clear();
     m_status = QStringLiteral("Playback started - waiting for first video frame...");
+    forceActiveFocus();
     update();
     return true;
 }
 
+void VlcVideoItem::togglePause()
+{
+    if (!m_mediaPlayer)
+        return;
+
+    const libvlc_state_t state = libvlc_media_player_get_state(m_mediaPlayer);
+    if (state == libvlc_Paused)
+    {
+        resumePlayback();
+    }
+    else if (state == libvlc_Playing || state == libvlc_Buffering)
+    {
+        pausePlayback();
+    }
+}
+
 void VlcVideoItem::pausePlayback()
 {
-    if (m_mediaPlayer)
-        libvlc_media_player_set_pause(m_mediaPlayer, 1);
+    if (!m_mediaPlayer)
+        return;
+
+    libvlc_media_player_set_pause(m_mediaPlayer, 1);
+    m_status = QStringLiteral("Paused");
+    update();
 }
 
 void VlcVideoItem::resumePlayback()
 {
-    if (m_mediaPlayer)
-        libvlc_media_player_set_pause(m_mediaPlayer, 0);
+    if (!m_mediaPlayer)
+        return;
+
+    libvlc_media_player_set_pause(m_mediaPlayer, 0);
+    m_status = QStringLiteral("Playing");
+    update();
 }
 
 void VlcVideoItem::stopPlayback()
@@ -171,7 +250,105 @@ void VlcVideoItem::stopPlayback()
         m_videoHeight = 0;
     }
 
+    m_receivedFrame.store(false, std::memory_order_relaxed);
+    m_status = QStringLiteral("Stopped");
     update();
+}
+
+void VlcVideoItem::seekTo(qint64 position)
+{
+    if (!m_mediaPlayer)
+        return;
+
+    const qint64 length = durationMs();
+    if (position < 0)
+        position = 0;
+    if (length > 0 && position > length)
+        position = length;
+
+    libvlc_media_player_set_time(m_mediaPlayer, static_cast<libvlc_time_t>(position));
+    m_status = QStringLiteral("Seek: %1").arg(formatTimeMs(position));
+    update();
+}
+
+void VlcVideoItem::seekRelative(qint64 deltaMs)
+{
+    seekTo(positionMs() + deltaMs);
+}
+
+qint64 VlcVideoItem::positionMs() const
+{
+    if (!m_mediaPlayer)
+        return 0;
+
+    return static_cast<qint64>(libvlc_media_player_get_time(m_mediaPlayer));
+}
+
+qint64 VlcVideoItem::durationMs() const
+{
+    if (!m_mediaPlayer)
+        return 0;
+
+    return static_cast<qint64>(libvlc_media_player_get_length(m_mediaPlayer));
+}
+
+void VlcVideoItem::setVolume(int value)
+{
+    if (value < 0)
+        value = 0;
+    if (value > 100)
+        value = 100;
+
+    m_volume = value;
+
+    if (m_mediaPlayer)
+        libvlc_audio_set_volume(m_mediaPlayer, m_volume);
+
+    m_status = QStringLiteral("Volume: %1%").arg(m_volume);
+    update();
+}
+
+int VlcVideoItem::volume() const
+{
+    if (!m_mediaPlayer)
+        return m_volume;
+
+    const int current = libvlc_audio_get_volume(m_mediaPlayer);
+    return current >= 0 ? current : m_volume;
+}
+
+void VlcVideoItem::setMuted(bool isMuted)
+{
+    if (m_mediaPlayer)
+        libvlc_audio_set_mute(m_mediaPlayer, isMuted ? 1 : 0);
+
+    m_status = isMuted ? QStringLiteral("Muted") : QStringLiteral("Unmuted");
+    update();
+}
+
+bool VlcVideoItem::muted() const
+{
+    if (!m_mediaPlayer)
+        return false;
+
+    return libvlc_audio_get_mute(m_mediaPlayer) == 1;
+}
+
+QString VlcVideoItem::controlOverlayText() const
+{
+    const QString state = m_mediaPlayer
+        ? stateName(libvlc_media_player_get_state(m_mediaPlayer))
+        : QStringLiteral("Idle");
+
+    return QStringLiteral(
+        "Minitiger libVLC · Phase 1.2\n"
+        "%1  ·  %2 / %3  ·  Volume %4%%%5\n"
+        "Space Pause/Play   ←/→ Seek 10s   ↑/↓ Volume 5   M Mute")
+        .arg(state)
+        .arg(formatTimeMs(positionMs()))
+        .arg(formatTimeMs(durationMs()))
+        .arg(volume())
+        .arg(muted() ? QStringLiteral(" · MUTED") : QString());
 }
 
 void VlcVideoItem::paint(QPainter* painter)
@@ -201,14 +378,70 @@ void VlcVideoItem::paint(QPainter* painter)
 
     painter->drawImage(target, m_frame);
 
+    const QRectF overlayRect(16, 16, qMin<qreal>(650, width() - 32), 72);
+    painter->fillRect(overlayRect, QColor(0, 0, 0, 170));
+    painter->setPen(Qt::white);
+    painter->drawText(
+        overlayRect.adjusted(12, 8, -12, -8),
+        Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
+        controlOverlayText());
+
     if (!m_receivedFrame.load(std::memory_order_relaxed))
     {
-        painter->setPen(Qt::white);
         painter->drawText(
-            boundingRect().adjusted(24, 24, -24, -24),
+            boundingRect().adjusted(24, 104, -24, -24),
             Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-            QStringLiteral("Minitiger libVLC Surface Test\n\n%1").arg(m_status));
+            m_status);
     }
+}
+
+void VlcVideoItem::keyPressEvent(QKeyEvent* event)
+{
+    if (!m_mediaPlayer)
+    {
+        QQuickPaintedItem::keyPressEvent(event);
+        return;
+    }
+
+    switch (event->key())
+    {
+    case Qt::Key_Space:
+        if (!event->isAutoRepeat())
+            togglePause();
+        event->accept();
+        return;
+
+    case Qt::Key_Left:
+        seekRelative(-10000);
+        event->accept();
+        return;
+
+    case Qt::Key_Right:
+        seekRelative(10000);
+        event->accept();
+        return;
+
+    case Qt::Key_Up:
+        setVolume(volume() + 5);
+        event->accept();
+        return;
+
+    case Qt::Key_Down:
+        setVolume(volume() - 5);
+        event->accept();
+        return;
+
+    case Qt::Key_M:
+        if (!event->isAutoRepeat())
+            setMuted(!muted());
+        event->accept();
+        return;
+
+    default:
+        break;
+    }
+
+    QQuickPaintedItem::keyPressEvent(event);
 }
 
 void* VlcVideoItem::lockVideo(void* opaque, void** planes)
@@ -241,9 +474,11 @@ void VlcVideoItem::displayVideo(void* opaque, void* picture)
     Q_UNUSED(picture);
 
     auto* item = static_cast<VlcVideoItem*>(opaque);
-    item->m_receivedFrame.store(true, std::memory_order_relaxed);
-    QMetaObject::invokeMethod(item, [item]() {
-        item->m_status = QStringLiteral("Receiving VLC video frames");
+    const bool firstFrame = !item->m_receivedFrame.exchange(true, std::memory_order_relaxed);
+
+    QMetaObject::invokeMethod(item, [item, firstFrame]() {
+        if (firstFrame)
+            item->m_status = QStringLiteral("Receiving VLC video frames");
         item->update();
     }, Qt::QueuedConnection);
 }
@@ -258,8 +493,7 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
     auto* item = static_cast<VlcVideoItem*>(*opaque);
 
     // RV32 is VLC's native 32-bit RGB format. Its fourth byte is padding,
-    // not a reliable alpha channel. QImage::Format_ARGB32 can therefore make
-    // valid VLC frames fully transparent. RGB32 intentionally ignores alpha.
+    // not a reliable alpha channel. RGB32 intentionally ignores alpha.
     std::memcpy(chroma, "RV32", 4);
 
     {
