@@ -24,6 +24,16 @@ dev\windows\build.bat
 dev\windows\run.bat
 ```
 
+### Phase 1.1 embedded VLC surface test
+
+Normal startup still uses MPV. To test the isolated embedded libVLC surface with a local media file:
+
+```powershell
+.\dev\windows\run.bat --vlc-test "C:\Path\To\video.mkv"
+```
+
+The test hides the normal WebEngine/MPV visual layers for that run and renders VLC frames into a Qt Quick item inside the same desktop window. This is a software-frame proof-of-concept, not the final optimized VLC renderer.
+
 ### Unit tests
 ```cmd
 dev\windows\test.bat
