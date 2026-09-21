@@ -10,11 +10,25 @@ async function tryConnect(server) {
         console.log("Server connectivity check passed");
         console.log("Resolved URL:", resolvedUrl);
 
-        // Save original URL but navigate to fully-resolved redirect
+        // Ensure the NativeShell settings proxy is ready before persisting
+        // the Jellyfin server address.
+        if (window.initCompleted) {
+            await window.initCompleted;
+        }
+
+        // In Minitiger Desktop this setting represents the Jellyfin API/server,
+        // not a separate web-client host.
         window.jmpInfo.settings.main.userWebClient = server;
 
-        // Navigation will clean up handlers, but do it explicitly
-        window.location = resolvedUrl;
+        // When the full Minitiger Web build is embedded, stay inside the
+        // desktop executable and let that local frontend talk to this server.
+        // Non-Minitiger/upstream builds keep the original server-web behavior.
+        if (window.jmpInfo.bundledMinitigerWeb && window.jmpInfo.bundledMinitigerWebUrl) {
+            console.log("Opening bundled Minitiger Web:", window.jmpInfo.bundledMinitigerWebUrl);
+            window.location = window.jmpInfo.bundledMinitigerWebUrl;
+        } else {
+            window.location = resolvedUrl;
+        }
 
         return true;
     } catch (e) {
