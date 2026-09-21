@@ -170,9 +170,11 @@ Phase 1.5a forces Qt's smooth image transformation and pixel-aligns the destinat
 
 Phase 1.5b asks libVLC itself to produce the callback frame at the actual Qt video-surface size while preserving the source aspect ratio. This moves the main resize step into libVLC before Qt draws the frame, instead of scaling a source-resolution frame only at the final QPainter stage.
 
-This is especially relevant to subtitles because libVLC 3's custom-memory callback path blends sub-pictures into the callback frame on the CPU. Producing a larger callback frame should therefore give subtitle rendering and fine line art more pixels before the final display step.
+This is especially relevant to subtitles because libVLC 3's custom-memory callback path blends sub-pictures into the callback frame on the CPU. Producing a larger callback frame gives subtitle rendering and fine line art more pixels before the final display step.
 
-This remains a CPU-oriented quality path. If it still cannot match MPV closely enough, the next architectural step is a GPU/scene-graph renderer rather than continuing to stack software scalers.
+**Validated on Windows:** the display-sized callback path produces a visibly cleaner result and removes the previously obvious pixelation on subtitles and fine anime line art. The current software renderer is now considered good enough for the Phase 1 VLC backend.
+
+A future GPU/scene-graph renderer is optional optimization work rather than a blocker.
 
 ## Player plan
 
