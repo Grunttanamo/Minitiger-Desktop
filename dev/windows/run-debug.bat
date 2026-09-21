@@ -1,5 +1,5 @@
 @echo off
-REM Minitiger Desktop - start with debug logging and follow the active log file.
+REM Minitiger Desktop - start with debug logging and follow the active runtime log.
 
 setlocal
 call "%~dp0common.bat"
@@ -19,23 +19,8 @@ if not exist "%APP_EXE%" (
 echo Starting Minitiger Desktop with debug logging...
 start "" "%APP_EXE%" --log-level debug %*
 
-echo Waiting for the Minitiger Desktop log file...
-timeout /t 1 /nobreak >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$roots = @((Join-Path $env:LOCALAPPDATA 'Minitiger Desktop'), (Join-Path $env:APPDATA 'Minitiger Desktop'));" ^
-  "$log = $null;" ^
-  "for ($i = 0; $i -lt 100 -and -not $log; $i++) {" ^
-  "  $log = $roots | Where-Object { Test-Path $_ } | ForEach-Object {" ^
-  "    Get-ChildItem $_ -Recurse -File -Filter 'Minitiger Desktop.log' -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -match '[\\/]logs
+echo Waiting for the Minitiger Desktop runtime log...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0follow-debug-log.ps1"
+set "RC=%ERRORLEVEL%"
 
-endlocal
- }" ^
-  "  } | Sort-Object LastWriteTime -Descending | Select-Object -First 1;" ^
-  "  if (-not $log) { Start-Sleep -Milliseconds 200 }" ^
-  "};" ^
-  "if (-not $log) { Write-Host 'ERROR: Could not locate the Minitiger Desktop runtime log in a logs folder.' -ForegroundColor Red; exit 1 };" ^
-  "Write-Host ('Following log: ' + $log.FullName) -ForegroundColor Cyan;" ^
-  "Write-Host 'Press Ctrl+C to stop following the log; the app can stay open.' -ForegroundColor DarkGray;" ^
-  "Get-Content -LiteralPath $log.FullName -Wait -Tail 200"
-
-endlocal
+endlocal & exit /b %RC%
