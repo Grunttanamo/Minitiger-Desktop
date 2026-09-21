@@ -60,6 +60,12 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
     setFlag(QQuickItem::ItemIsFocusScope, true);
     setAcceptedMouseButtons(Qt::LeftButton);
     setFocus(true);
+
+    m_pollTimer.setInterval(250);
+    connect(&m_pollTimer, &QTimer::timeout, this, [this]() {
+        pollPlaybackState();
+    });
+
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
 
@@ -97,6 +103,8 @@ bool VlcVideoItem::ensureVlc()
 
 void VlcVideoItem::releasePlayer()
 {
+    m_pollTimer.stop();
+
     if (!m_mediaPlayer)
         return;
 
@@ -105,7 +113,7 @@ void VlcVideoItem::releasePlayer()
     m_mediaPlayer = nullptr;
 }
 
-bool VlcVideoItem::playSource(const QString& source)
+bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, bool autoplay)
 {
     if (source.trimmed().isEmpty())
     {
@@ -188,6 +196,11 @@ bool VlcVideoItem::playSource(const QString& source)
 
     m_status = QStringLiteral("Opening media with libVLC...");
     m_receivedFrame.store(false, std::memory_order_relaxed);
+    m_lastPolledState = libvlc_NothingSpecial;
+    m_lastDurationMs = -1;
+    m_pendingStartMs = qMax<qint64>(0, startMilliseconds);
+    m_pendingAutoplay = autoplay;
+    m_pendingInitialSeek = m_pendingStartMs > 0 || !m_pendingAutoplay;
     update();
 
     const int result = libvlc_media_player_play(m_mediaPlayer);
@@ -200,6 +213,7 @@ bool VlcVideoItem::playSource(const QString& source)
 
     m_lastError.clear();
     m_status = QStringLiteral("Playback started - waiting for first video frame...");
+    m_pollTimer.start();
     forceActiveFocus();
     update();
     return true;
@@ -334,6 +348,78 @@ bool VlcVideoItem::muted() const
         return false;
 
     return libvlc_audio_get_mute(m_mediaPlayer) == 1;
+}
+
+void VlcVideoItem::setPlaybackRate(double rate)
+{
+    if (!m_mediaPlayer || rate <= 0.0)
+        return;
+
+    libvlc_media_player_set_rate(m_mediaPlayer, static_cast<float>(rate));
+}
+
+void VlcVideoItem::pollPlaybackState()
+{
+    if (!m_mediaPlayer)
+        return;
+
+    const libvlc_state_t state = libvlc_media_player_get_state(m_mediaPlayer);
+
+    const qint64 position = positionMs();
+    const qint64 duration = durationMs();
+
+    if (duration > 0 && duration != m_lastDurationMs)
+    {
+        m_lastDurationMs = duration;
+        emit durationChanged(duration);
+    }
+
+    if (position >= 0)
+        emit positionChanged(position);
+
+    if (state == libvlc_Playing && m_pendingInitialSeek)
+    {
+        if (m_pendingStartMs > 0)
+            libvlc_media_player_set_time(m_mediaPlayer, static_cast<libvlc_time_t>(m_pendingStartMs));
+
+        if (!m_pendingAutoplay)
+            libvlc_media_player_set_pause(m_mediaPlayer, 1);
+
+        m_pendingInitialSeek = false;
+    }
+
+    if (state != m_lastPolledState)
+    {
+        switch (state)
+        {
+        case libvlc_Playing:
+            emit playbackStarted();
+            break;
+        case libvlc_Paused:
+            emit playbackPaused();
+            break;
+        case libvlc_Ended:
+            emit playbackFinished();
+            m_pollTimer.stop();
+            break;
+        case libvlc_Error:
+        {
+            const char* vlcError = libvlc_errmsg();
+            const QString message = vlcError
+                ? QString::fromUtf8(vlcError)
+                : QStringLiteral("libVLC playback error");
+            emit playbackError(message);
+            m_pollTimer.stop();
+            break;
+        }
+        default:
+            break;
+        }
+
+        m_lastPolledState = state;
+    }
+
+    update();
 }
 
 QString VlcVideoItem::controlOverlayText() const
