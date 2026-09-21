@@ -720,6 +720,18 @@ void VlcVideoItem::paint(QPainter* painter)
     }
 }
 
+void VlcVideoItem::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
+{
+    QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
+
+    m_requestedOutputWidth.store(
+        qMax(1, qRound(newGeometry.width())),
+        std::memory_order_relaxed);
+    m_requestedOutputHeight.store(
+        qMax(1, qRound(newGeometry.height())),
+        std::memory_order_relaxed);
+}
+
 void VlcVideoItem::keyPressEvent(QKeyEvent* event)
 {
     if (!m_mediaPlayer)
@@ -877,6 +889,29 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
     // not a reliable alpha channel. RGB32 intentionally ignores alpha.
     std::memcpy(chroma, "RV32", 4);
 
+    const unsigned sourceWidth = *width;
+    const unsigned sourceHeight = *height;
+
+    int requestedWidth = item->m_requestedOutputWidth.load(std::memory_order_relaxed);
+    int requestedHeight = item->m_requestedOutputHeight.load(std::memory_order_relaxed);
+
+    if (requestedWidth > 0 && requestedHeight > 0 && sourceWidth > 0 && sourceHeight > 0)
+    {
+        const double sourceAspect = static_cast<double>(sourceWidth) / static_cast<double>(sourceHeight);
+        const double targetAspect = static_cast<double>(requestedWidth) / static_cast<double>(requestedHeight);
+
+        if (targetAspect > sourceAspect)
+        {
+            *height = static_cast<unsigned>(requestedHeight);
+            *width = static_cast<unsigned>(qMax(1, qRound(requestedHeight * sourceAspect)));
+        }
+        else
+        {
+            *width = static_cast<unsigned>(requestedWidth);
+            *height = static_cast<unsigned>(qMax(1, qRound(requestedWidth / sourceAspect)));
+        }
+    }
+
     {
         QMutexLocker locker(&item->m_frameMutex);
         item->m_videoWidth = *width;
@@ -898,7 +933,8 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
     }
 
     qInfo() << "Minitiger VLC video format:"
-            << *width << "x" << *height
+            << sourceWidth << "x" << sourceHeight
+            << "-> callback output" << *width << "x" << *height
             << "pitch" << *pitches;
 
     return 1;
