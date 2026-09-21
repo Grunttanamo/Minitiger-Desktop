@@ -18,11 +18,24 @@ bool BundledWebServer::start()
     if (m_server.isListening())
         return true;
 
-    if (!m_server.listen(QHostAddress::LocalHost, 0))
+    // Keep a stable localhost origin so WebStorage, IndexedDB and service
+    // worker state survive normal desktop restarts. A random port makes the
+    // browser treat every launch as a completely new site.
+    constexpr quint16 preferredPort = 38473;
+
+    if (!m_server.listen(QHostAddress::LocalHost, preferredPort))
     {
-        qCritical() << "Minitiger bundled web server failed to listen:"
-                    << m_server.errorString();
-        return false;
+        qWarning() << "Preferred Minitiger bundled web port"
+                   << preferredPort
+                   << "is unavailable; falling back to a random localhost port:"
+                   << m_server.errorString();
+
+        if (!m_server.listen(QHostAddress::LocalHost, 0))
+        {
+            qCritical() << "Minitiger bundled web server failed to listen:"
+                        << m_server.errorString();
+            return false;
+        }
     }
 
     qInfo() << "Minitiger bundled web server listening at" << baseUrl().toString();
