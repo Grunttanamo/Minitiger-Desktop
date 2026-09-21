@@ -11,10 +11,16 @@ set MPV_VERSION=20260921-git-e76a35ec95
 
 set VLC_VERSION=3.0.23
 
+REM Minitiger Web is the authoritative frontend source for the desktop bundle.
+set MINITIGER_WEB_REPO=https://github.com/Grunttanamo/Minitiger.git
+set MINITIGER_WEB_BRANCH=minitiger-v12.1
+
 set SCRIPT_DIR=%~dp0
 for %%i in ("%SCRIPT_DIR%\..\..") do set "PROJECT_ROOT=%%~fi"
 set DEPS_DIR=%SCRIPT_DIR%deps
 set VLC_DIR=%DEPS_DIR%\vlc-%VLC_VERSION%
+set MINITIGER_WEB_SOURCE_DIR=%DEPS_DIR%\minitiger-web-src
+set MINITIGER_WEB_DIST_DIR=%MINITIGER_WEB_SOURCE_DIR%\dist
 set BUILD_DIR=%PROJECT_ROOT%\build
 set EXE_NAME=Jellyfin Desktop.exe
 
