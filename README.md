@@ -59,7 +59,7 @@ Current work:
 - [ ] Connect final audio and subtitle track controls
 - [x] Connect basic VLC position/duration/playback state signals to Jellyfin
 - [x] Verify first end-to-end Jellyfin → embedded VLC playback with normal Jellyfin OSD
-- [ ] Finish full Jellyfin progress/resume validation and queue/auto-next
+- [x] Verify Jellyfin progress/resume, episode end and queue/auto-next with VLC
 - [ ] Bundle the Minitiger Web frontend directly into Minitiger Desktop
 
 **Phase 1.0 is verified:** the Windows build completes, Minitiger Desktop starts, and the existing MPV playback path still works.
@@ -142,12 +142,12 @@ The normal Jellyfin video OSD remains above the native VLC surface. The old Phas
 
 **Verified on Windows:** normal Jellyfin video playback successfully reaches the embedded libVLC backend and renders underneath the standard Jellyfin playback OSD.
 
+**Also verified on Windows:** Jellyfin resume/progress behavior, episode completion and automatic next-episode/queue progression work with the VLC backend.
+
 Current Phase 1.3 limitations:
 
 - audio track switching is not wired to VLC yet
 - subtitle track switching is not wired to VLC yet
-- queue / auto-next still needs validation
-- progress / resume reporting still needs an end-to-end Jellyfin test
 - VLC remains experimental; MPV is still the default and fallback
 
 ## Player plan
