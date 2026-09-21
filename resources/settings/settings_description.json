@@ -148,8 +148,9 @@
       },
       {
         "value": "userWebClient",
-        "default": "",
-        "hidden": true
+        "display_name": "Jellyfin Server Address",
+        "help": "The normal Jellyfin Server used by bundled Minitiger Web, for example http://192.168.1.50:8096. Restart Minitiger Desktop after changing this value.",
+        "default": ""
       },
       {
         "value": "enableWindowsMediaIntegration",
