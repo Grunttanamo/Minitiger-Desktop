@@ -187,26 +187,27 @@ Grunttanamo/Minitiger
 branch: minitiger-v12.1
 ```
 
-During a Windows desktop build, `dev/windows/prepare-minitiger-web.bat` clones or updates that branch, runs the production web build, and passes its `dist/` directory to CMake. Qt's resource compiler then embeds the complete built frontend into the desktop executable under:
+During a Windows desktop build, `dev/windows/prepare-minitiger-web.bat` clones or updates that branch, runs the production web build, and passes its `dist/` directory to CMake. Qt's resource compiler embeds the complete built frontend into the desktop executable. At runtime Minitiger Desktop exposes those embedded files through a private loopback HTTP server on an automatically selected free `127.0.0.1` port.
 
-```text
-qrc:///web-client/minitiger/
-```
+The loopback server runs **inside the same Minitiger Desktop process**. It is not the old Minitiger Web sidecar, does not use `:8098`, and requires no separate service or process.
 
-The desktop connection screen still asks for / remembers a normal Jellyfin Server address. When the bundled frontend is enabled, a successful connection opens the embedded Minitiger Web `index.html` instead of navigating to the server-hosted Jellyfin Web UI.
+The desktop connection screen still asks for / remembers a normal Jellyfin Server address. When the bundled frontend is enabled, a successful connection opens the internally hosted Minitiger Web frontend instead of navigating to the server-hosted Jellyfin Web UI.
 
 Minitiger Web receives the saved Jellyfin server address through the native shell, so the intended runtime becomes:
 
 ```text
-Minitiger Desktop
-├── bundled Minitiger Web
+Minitiger Desktop.exe
+├── internal 127.0.0.1:<automatic-port>
+│   └── bundled Minitiger Web
 ├── MPV / libVLC
 └── normal Jellyfin Server (for example :8096)
 ```
 
-No Minitiger Web sidecar or separate frontend port should be needed once this phase is validated.
+The first `qrc://` runtime attempt successfully loaded the embedded frontend and Jellyfin server configuration, but Jellyfin Web's router requires a normal hierarchical web origin. Phase 2.0 therefore serves the same embedded resources through the internal loopback server instead.
 
-**Status:** implementation is in the development branch; the first Windows compile/runtime validation is still pending.
+No Minitiger Web sidecar or fixed frontend port is required.
+
+**Status:** internal localhost delivery is implemented; Windows validation is pending.
 
 ## Player plan
 
