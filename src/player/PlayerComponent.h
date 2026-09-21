@@ -17,6 +17,8 @@
 #include <mpv/client.h>
 
 class MpvController;
+class MpvVideoItem;
+class VlcVideoItem;
 class AlbumArtProvider;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -242,10 +244,16 @@ private:
   void checkCurrentAudioDevice(const QSet<QString>& old_devs, const QSet<QString>& new_devs);
   void appendAudioFormat(QTextStream& info, const QString& property) const;
   void updateVideoAspectSettings();
+  bool useVlcVideoBackend() const;
+  void setVlcSurfaceActive(bool active);
+  void updateVlcVideoGeometry();
   QVariantList findStreamsForURL(const QString &url);
   void reselectStream(const QVariant &streamSelection, MediaType target);
 
   MpvController* m_mpv = nullptr;
+  MpvVideoItem* m_mpvVideoItem = nullptr;
+  VlcVideoItem* m_vlcVideoItem = nullptr;
+  bool m_vlcPlaybackActive = false;
 
   State m_state;
   bool m_paused;
