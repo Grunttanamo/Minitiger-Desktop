@@ -25,10 +25,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$roots = @((Join-Path $env:LOCALAPPDATA 'Minitiger Desktop'), (Join-Path $env:APPDATA 'Minitiger Desktop'));" ^
   "$log = $null;" ^
   "for ($i = 0; $i -lt 100 -and -not $log; $i++) {" ^
-  "  $log = $roots | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem $_ -Recurse -File -Filter '*.log' -ErrorAction SilentlyContinue } | Sort-Object LastWriteTime -Descending | Select-Object -First 1;" ^
+  "  $log = $roots | Where-Object { Test-Path $_ } | ForEach-Object {" ^
+  "    Get-ChildItem $_ -Recurse -File -Filter 'Minitiger Desktop.log' -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -match '[\\/]logs
+
+endlocal
+ }" ^
+  "  } | Sort-Object LastWriteTime -Descending | Select-Object -First 1;" ^
   "  if (-not $log) { Start-Sleep -Milliseconds 200 }" ^
   "};" ^
-  "if (-not $log) { Write-Host 'ERROR: Could not locate a Minitiger Desktop log under LocalAppData/AppData.' -ForegroundColor Red; exit 1 };" ^
+  "if (-not $log) { Write-Host 'ERROR: Could not locate the Minitiger Desktop runtime log in a logs folder.' -ForegroundColor Red; exit 1 };" ^
   "Write-Host ('Following log: ' + $log.FullName) -ForegroundColor Cyan;" ^
   "Write-Host 'Press Ctrl+C to stop following the log; the app can stay open.' -ForegroundColor DarkGray;" ^
   "Get-Content -LiteralPath $log.FullName -Wait -Tail 200"
