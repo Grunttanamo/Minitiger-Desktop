@@ -113,7 +113,7 @@ void VlcVideoItem::releasePlayer()
     m_mediaPlayer = nullptr;
 }
 
-bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, bool autoplay)
+bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, bool autoplay, const QString& userAgent)
 {
     if (source.trimmed().isEmpty())
     {
@@ -154,6 +154,12 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
         const QByteArray location = source.toUtf8();
         qInfo() << "Minitiger VLC opening location:" << source;
         media = libvlc_media_new_location(m_vlc, location.constData());
+    }
+
+    if (media && !userAgent.isEmpty())
+    {
+        const QByteArray option = QStringLiteral(":http-user-agent=%1").arg(userAgent).toUtf8();
+        libvlc_media_add_option(media, option.constData());
     }
 
     if (!media)
