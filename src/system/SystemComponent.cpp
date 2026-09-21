@@ -579,6 +579,13 @@ QString SystemComponent::getNativeShellScript()
   clientData.insert("settingsDescriptions", QJsonValue::fromVariant(settingsDescriptions));
   clientData.insert("settings", QJsonValue::fromVariant(SettingsComponent::Get().allValues()));
 
+#ifdef MINITIGER_BUNDLED_WEB
+  clientData.insert("bundledMinitigerWeb", true);
+  clientData.insert("bundledMinitigerWebUrl", "qrc:///web-client/minitiger/index.html");
+#else
+  clientData.insert("bundledMinitigerWeb", false);
+#endif
+
   QString jmpInfoDeclaration = "const jmpInfo = JSON.parse(window.atob(\"" +
                                 QJsonDocument(clientData).toJson(QJsonDocument::Compact).toBase64() +
                                 "\"));\nwindow.jmpInfo = jmpInfo;\n";
