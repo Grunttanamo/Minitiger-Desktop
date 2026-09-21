@@ -115,6 +115,10 @@ bool VlcVideoItem::playSource(const QString& source)
         &VlcVideoItem::setupVideoFormat,
         &VlcVideoItem::cleanupVideoFormat);
 
+    m_status = QStringLiteral("Opening media with libVLC...");
+    m_receivedFrame.store(false, std::memory_order_relaxed);
+    update();
+
     const int result = libvlc_media_player_play(m_mediaPlayer);
     if (result != 0)
     {
@@ -124,6 +128,8 @@ bool VlcVideoItem::playSource(const QString& source)
     }
 
     m_lastError.clear();
+    m_status = QStringLiteral("Playback started - waiting for first video frame...");
+    update();
     return true;
 }
 
@@ -159,7 +165,14 @@ void VlcVideoItem::paint(QPainter* painter)
 
     QMutexLocker locker(&m_frameMutex);
     if (m_frame.isNull())
+    {
+        painter->setPen(Qt::white);
+        painter->drawText(
+            boundingRect().adjusted(24, 24, -24, -24),
+            Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+            QStringLiteral("Minitiger libVLC Surface Test\n\n%1").arg(m_status));
         return;
+    }
 
     const QSizeF sourceSize(m_frame.width(), m_frame.height());
     QSizeF targetSize = sourceSize;
@@ -204,7 +217,11 @@ void VlcVideoItem::displayVideo(void* opaque, void* picture)
     Q_UNUSED(picture);
 
     auto* item = static_cast<VlcVideoItem*>(opaque);
-    QMetaObject::invokeMethod(item, [item]() { item->update(); }, Qt::QueuedConnection);
+    item->m_receivedFrame.store(true, std::memory_order_relaxed);
+    QMetaObject::invokeMethod(item, [item]() {
+        item->m_status = QStringLiteral("Receiving VLC video frames");
+        item->update();
+    }, Qt::QueuedConnection);
 }
 
 unsigned VlcVideoItem::setupVideoFormat(void** opaque,
@@ -216,8 +233,9 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
 {
     auto* item = static_cast<VlcVideoItem*>(*opaque);
 
-    // RV32 is VLC's native 32-bit RGB format. On little-endian Windows this
-    // maps cleanly to QImage::Format_ARGB32 for our Phase 1 software surface.
+    // RV32 is VLC's native 32-bit RGB format. Its fourth byte is padding,
+    // not a reliable alpha channel. QImage::Format_ARGB32 can therefore make
+    // valid VLC frames fully transparent. RGB32 intentionally ignores alpha.
     std::memcpy(chroma, "RV32", 4);
 
     {
@@ -227,7 +245,7 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
         item->m_frame = QImage(
             static_cast<int>(*width),
             static_cast<int>(*height),
-            QImage::Format_ARGB32);
+            QImage::Format_RGB32);
 
         if (item->m_frame.isNull())
         {
@@ -259,5 +277,7 @@ void VlcVideoItem::cleanupVideoFormat(void* opaque)
 void VlcVideoItem::setError(const QString& error)
 {
     m_lastError = error;
+    m_status = QStringLiteral("ERROR: %1").arg(error);
+    QMetaObject::invokeMethod(this, [this]() { update(); }, Qt::QueuedConnection);
     qWarning() << "Minitiger VLC:" << error;
 }
