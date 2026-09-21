@@ -6,6 +6,14 @@ class updatePlugin {
         this.id = 'updatePlugin';
 
         (async () => {
+            // Minitiger Desktop does not publish upstream Jellyfin Desktop
+            // releases. Avoid the browser-side GitHub redirect fetch, which is
+            // cross-origin from the internal localhost frontend.
+            if (window.jmpInfo?.bundledMinitigerWeb) {
+                console.log('Minitiger Desktop: upstream update check disabled');
+                return;
+            }
+
             const api = await window.apiPromise;
 
             const onUpdateNotify = async (url) => {
