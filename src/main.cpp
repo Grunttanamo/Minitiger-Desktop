@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
   try
   {
     QCommandLineParser parser;
-    parser.setApplicationDescription("Jellyfin Desktop");
+    parser.setApplicationDescription("Minitiger Desktop");
     parser.addVersionOption();
     parser.addOptions({{{"h", "help"},              "Show this help"},
                        {{"l", "licenses"},          "Show license information"},
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 
     auto vlcTestOption = QCommandLineOption(
       "vlc-test",
-      "Play a local file or URL with the experimental embedded libVLC surface.");
+      "Play a local file or URL with the embedded libVLC surface.");
     vlcTestOption.setValueName("source");
 
     parser.addOption(scaleOption);
