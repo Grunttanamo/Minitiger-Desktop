@@ -12,7 +12,6 @@
 #include <vlc/vlc.h>
 
 class QKeyEvent;
-class QMouseEvent;
 class QPainter;
 
 class VlcVideoItem : public QQuickPaintedItem
@@ -44,7 +43,6 @@ public:
     Q_INVOKABLE bool setAudioTrackRelative(int relativeIndex);
     Q_INVOKABLE bool setSubtitleTrackRelative(int relativeIndex);
     Q_INVOKABLE bool addExternalSubtitle(const QString& source);
-    Q_INVOKABLE void setTestControlsVisible(bool visible) { m_testControlsVisible = visible; update(); }
 
     QString lastError() const { return m_lastError; }
 
@@ -58,7 +56,6 @@ Q_SIGNALS:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
@@ -76,18 +73,9 @@ private:
     bool ensureVlc();
     void releasePlayer();
     void setError(const QString& error);
-    QString controlOverlayText() const;
     void pollPlaybackState();
     int trackIdForRelativeIndex(libvlc_track_description_t* tracks, int relativeIndex) const;
 
-    QRectF controlBarRect() const;
-    QRectF progressRect() const;
-    QRectF playButtonRect() const;
-    QRectF backButtonRect() const;
-    QRectF forwardButtonRect() const;
-    QRectF muteButtonRect() const;
-    QRectF volumeDownButtonRect() const;
-    QRectF volumeUpButtonRect() const;
 
     libvlc_instance_t* m_vlc = nullptr;
     libvlc_media_player_t* m_mediaPlayer = nullptr;
@@ -109,7 +97,6 @@ private:
     qint64 m_pendingStartMs = 0;
     bool m_pendingAutoplay = true;
     bool m_pendingInitialSeek = false;
-    bool m_testControlsVisible = true;
 };
 
 #endif // VLCVIDEOITEM_H
