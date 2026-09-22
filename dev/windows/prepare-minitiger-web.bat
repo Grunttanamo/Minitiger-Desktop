@@ -1,6 +1,6 @@
 @echo off
 REM Minitiger Desktop - prepare the bundled Minitiger Web frontend
-REM The authoritative source is Grunttanamo/Minitiger, branch minitiger-v12.1.
+REM Desktop-only frontend source: Grunttanamo/Minitiger-Desktop-Web, branch minitiger-desktop-v12.1.
 
 setlocal EnableDelayedExpansion
 call "%~dp0common.bat"
@@ -46,6 +46,15 @@ if not exist "%MINITIGER_WEB_SOURCE_DIR%\.git" (
 )
 
 pushd "%MINITIGER_WEB_SOURCE_DIR%"
+
+REM Existing build caches may still point at the public Sidecar/Web repository.
+REM Always bind this Desktop checkout to the dedicated Desktop-Web source.
+git remote set-url origin "%MINITIGER_WEB_REPO%"
+if errorlevel 1 (
+    popd
+    echo ERROR: Failed to configure Minitiger Desktop Web origin.
+    exit /b 1
+)
 
 echo.
 echo [Minitiger Web] Syncing %MINITIGER_WEB_BRANCH%...
