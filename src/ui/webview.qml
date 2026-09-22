@@ -9,7 +9,7 @@ import Qt.labs.platform as Labs
 Window
 {
   id: mainWindow
-  title: "Minitiger Desktop · Experimental"
+  title: "Minitiger Desktop"
   objectName: "mainWindow"
   width: 1280
   height: 720
@@ -422,7 +422,7 @@ Window
   Labs.SystemTrayIcon {
     visible: showSystemTrayIcon
     icon.source: "qrc:/images/icon.png"
-    tooltip: "Minitiger Desktop · Experimental"
+    tooltip: "Minitiger Desktop"
 
     onActivated: function(reason) {
       if (reason === Labs.SystemTrayIcon.Context) {
