@@ -33,8 +33,11 @@ Minitiger Desktop
 
 For a Minitiger Desktop user, the finished client should not require a separately installed Minitiger Web sidecar or a second frontend port.
 
-The existing Minitiger Web project remains the source for the Minitiger frontend:
+The public Minitiger Web / Sidecar project remains independent and must stay compatible for browser and Sidecar users:
 [Grunttanamo/Minitiger](https://github.com/Grunttanamo/Minitiger)
+
+Minitiger Desktop bundles its own Desktop-focused frontend fork:
+[Grunttanamo/Minitiger-Desktop-Web](https://github.com/Grunttanamo/Minitiger-Desktop-Web)
 
 ## Native VLC · Phase 1
 
@@ -180,12 +183,14 @@ A future GPU/scene-graph renderer is optional optimization work rather than a bl
 
 Phase 2.0 begins the standalone-client transition.
 
-The authoritative frontend remains:
+The authoritative **Desktop frontend** is now kept separate from the public Web / Sidecar build:
 
 ```text
-Grunttanamo/Minitiger
-branch: minitiger-v12.1
+Grunttanamo/Minitiger-Desktop-Web
+branch: minitiger-desktop-v12.1
 ```
+
+The public `Grunttanamo/Minitiger` repository remains the Web / Sidecar project and is not used as the Desktop cleanup target.
 
 During a Windows desktop build, `dev/windows/prepare-minitiger-web.bat` clones or updates that branch, runs the production web build, and passes its `dist/` directory to CMake. Qt's resource compiler embeds the complete built frontend into the desktop executable. At runtime Minitiger Desktop exposes those embedded files through a private loopback HTTP server on an automatically selected free `127.0.0.1` port.
 
