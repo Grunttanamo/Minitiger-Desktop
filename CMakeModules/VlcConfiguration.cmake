@@ -1,9 +1,8 @@
-# Minitiger Desktop - experimental libVLC configuration
+# Minitiger Desktop - optional libVLC video backend configuration
 #
-# Phase 1 only wires libVLC into the native build. MPV remains the active
-# playback backend until the VLC video surface and backend bridge are added.
+# MPV remains available for audio playback and as the fallback video backend.
 
-option(ENABLE_VLC "Enable experimental Minitiger libVLC backend support" OFF)
+option(ENABLE_VLC "Enable Minitiger libVLC video backend support" OFF)
 
 set(VLC_INCLUDE_DIR "" CACHE PATH "Path to the libVLC SDK include directory")
 set(VLC_LIBRARY "" CACHE FILEPATH "Path to the libVLC import/shared library")
@@ -50,7 +49,7 @@ if(ENABLE_VLC)
 
   add_compile_definitions(MINITIGER_ENABLE_VLC=1)
 
-  message(STATUS "Minitiger experimental libVLC support enabled")
+  message(STATUS "Minitiger libVLC video backend enabled")
   message(STATUS "  VLC include: ${VLC_INCLUDE_DIR}")
   message(STATUS "  VLC library: ${VLC_LIBRARY}")
   if(WIN32)
