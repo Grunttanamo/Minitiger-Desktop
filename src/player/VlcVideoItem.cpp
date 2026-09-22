@@ -4,7 +4,6 @@
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QMetaObject>
-#include <QMouseEvent>
 #include <QMutexLocker>
 #include <QPainter>
 #include <QUrl>
@@ -34,22 +33,6 @@ QString formatTimeMs(qint64 value)
         .arg(seconds, 2, 10, QLatin1Char('0'));
 }
 
-QString stateName(libvlc_state_t state)
-{
-    switch (state)
-    {
-    case libvlc_Opening: return QStringLiteral("Opening");
-    case libvlc_Buffering: return QStringLiteral("Buffering");
-    case libvlc_Playing: return QStringLiteral("Playing");
-    case libvlc_Paused: return QStringLiteral("Paused");
-    case libvlc_Stopped: return QStringLiteral("Stopped");
-    case libvlc_Ended: return QStringLiteral("Ended");
-    case libvlc_Error: return QStringLiteral("Error");
-    case libvlc_NothingSpecial:
-    default:
-        return QStringLiteral("Idle");
-    }
-}
 }
 
 VlcVideoItem::VlcVideoItem(QQuickItem* parent)
@@ -58,7 +41,6 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
     setAntialiasing(false);
     setOpaquePainting(true);
     setFlag(QQuickItem::ItemIsFocusScope, true);
-    setAcceptedMouseButtons(Qt::LeftButton);
     setFocus(true);
 
     m_pollTimer.setInterval(250);
@@ -117,7 +99,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
 {
     if (source.trimmed().isEmpty())
     {
-        setError(QStringLiteral("No VLC test source was provided"));
+        setError(QStringLiteral("No VLC source was provided"));
         return false;
     }
 
@@ -538,73 +520,6 @@ void VlcVideoItem::pollPlaybackState()
     update();
 }
 
-QString VlcVideoItem::controlOverlayText() const
-{
-    const QString state = m_mediaPlayer
-        ? stateName(libvlc_media_player_get_state(m_mediaPlayer))
-        : QStringLiteral("Idle");
-
-    return QStringLiteral("%1  ·  %2 / %3  ·  Volume %4%%5")
-        .arg(state)
-        .arg(formatTimeMs(positionMs()))
-        .arg(formatTimeMs(durationMs()))
-        .arg(volume())
-        .arg(muted() ? QStringLiteral(" · MUTED") : QString());
-}
-
-QRectF VlcVideoItem::controlBarRect() const
-{
-    const qreal margin = 24.0;
-    const qreal barHeight = 94.0;
-    return QRectF(
-        margin,
-        qMax<qreal>(margin, height() - barHeight - margin),
-        qMax<qreal>(0.0, width() - (margin * 2.0)),
-        barHeight);
-}
-
-QRectF VlcVideoItem::progressRect() const
-{
-    const QRectF bar = controlBarRect();
-    return QRectF(bar.left() + 18.0, bar.top() + 15.0, qMax<qreal>(0.0, bar.width() - 36.0), 8.0);
-}
-
-QRectF VlcVideoItem::playButtonRect() const
-{
-    const QRectF bar = controlBarRect();
-    return QRectF(bar.left() + 18.0, bar.top() + 38.0, 54.0, 40.0);
-}
-
-QRectF VlcVideoItem::backButtonRect() const
-{
-    const QRectF play = playButtonRect();
-    return QRectF(play.right() + 10.0, play.top(), 54.0, 40.0);
-}
-
-QRectF VlcVideoItem::forwardButtonRect() const
-{
-    const QRectF back = backButtonRect();
-    return QRectF(back.right() + 10.0, back.top(), 54.0, 40.0);
-}
-
-QRectF VlcVideoItem::muteButtonRect() const
-{
-    const QRectF bar = controlBarRect();
-    return QRectF(bar.right() - 214.0, bar.top() + 38.0, 72.0, 40.0);
-}
-
-QRectF VlcVideoItem::volumeDownButtonRect() const
-{
-    const QRectF mute = muteButtonRect();
-    return QRectF(mute.right() + 10.0, mute.top(), 40.0, 40.0);
-}
-
-QRectF VlcVideoItem::volumeUpButtonRect() const
-{
-    const QRectF down = volumeDownButtonRect();
-    return QRectF(down.right() + 10.0, down.top(), 40.0, 40.0);
-}
-
 void VlcVideoItem::paint(QPainter* painter)
 {
     painter->fillRect(boundingRect(), Qt::black);
@@ -616,11 +531,11 @@ void VlcVideoItem::paint(QPainter* painter)
         painter->drawText(
             boundingRect().adjusted(24, 24, -24, -24),
             Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-            QStringLiteral("Minitiger libVLC Surface Test\n\n%1").arg(m_status));
+            QStringLiteral("Minitiger libVLC\n\n%1").arg(m_status));
         return;
     }
 
-    // Phase 1.5a quality path:
+    // Preserve image quality when scaling the native VLC frame to the Qt surface.
     // The VLC callback gives us a native-resolution QImage. QPainter otherwise
     // may use a fast nearest-neighbour style transform when that frame needs to
     // be resized to the Qt Quick surface, which is especially visible on anime
@@ -643,73 +558,6 @@ void VlcVideoItem::paint(QPainter* painter)
         targetSize.height());
 
     painter->drawImage(target, m_frame, QRectF(m_frame.rect()));
-
-    if (m_testControlsVisible)
-    {
-        // Clickable Phase 1.2 test control bar.
-        const QRectF bar = controlBarRect();
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(0, 0, 0, 185));
-        painter->drawRoundedRect(bar, 12.0, 12.0);
-
-        const QRectF progress = progressRect();
-        painter->setBrush(QColor(255, 255, 255, 70));
-        painter->drawRoundedRect(progress, 4.0, 4.0);
-
-        const qint64 length = durationMs();
-        const qint64 current = positionMs();
-        if (length > 0)
-        {
-            const qreal ratio = qBound<qreal>(0.0, static_cast<qreal>(current) / static_cast<qreal>(length), 1.0);
-            QRectF played = progress;
-            played.setWidth(progress.width() * ratio);
-            painter->setBrush(QColor(255, 184, 74, 230));
-            painter->drawRoundedRect(played, 4.0, 4.0);
-        }
-
-        auto drawButton = [painter](const QRectF& rect, const QString& label, bool active = false) {
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(active ? QColor(255, 184, 74, 220) : QColor(255, 255, 255, 32));
-            painter->drawRoundedRect(rect, 8.0, 8.0);
-            painter->setPen(active ? Qt::black : Qt::white);
-            QFont font = painter->font();
-            font.setBold(true);
-            painter->setFont(font);
-            painter->drawText(rect, Qt::AlignCenter, label);
-        };
-
-        const libvlc_state_t state = m_mediaPlayer
-            ? libvlc_media_player_get_state(m_mediaPlayer)
-            : libvlc_NothingSpecial;
-
-        drawButton(
-            playButtonRect(),
-            state == libvlc_Paused ? QStringLiteral("PLAY") : QStringLiteral("PAUSE"),
-            state == libvlc_Paused);
-
-        drawButton(backButtonRect(), QStringLiteral("-10s"));
-        drawButton(forwardButtonRect(), QStringLiteral("+10s"));
-        drawButton(muteButtonRect(), muted() ? QStringLiteral("UNMUTE") : QStringLiteral("MUTE"), muted());
-        drawButton(volumeDownButtonRect(), QStringLiteral("-"));
-        drawButton(volumeUpButtonRect(), QStringLiteral("+"));
-
-        painter->setPen(Qt::white);
-        QFont infoFont = painter->font();
-        infoFont.setBold(false);
-        painter->setFont(infoFont);
-
-        const QRectF infoRect(
-            forwardButtonRect().right() + 18.0,
-            playButtonRect().top(),
-            qMax<qreal>(0.0, muteButtonRect().left() - forwardButtonRect().right() - 36.0),
-            40.0);
-
-        painter->drawText(
-            infoRect,
-            Qt::AlignLeft | Qt::AlignVCenter,
-            controlOverlayText());
-
-    }
 
     if (!m_receivedFrame.load(std::memory_order_relaxed))
     {
@@ -779,62 +627,6 @@ void VlcVideoItem::keyPressEvent(QKeyEvent* event)
     }
 
     QQuickPaintedItem::keyPressEvent(event);
-}
-
-void VlcVideoItem::mousePressEvent(QMouseEvent* event)
-{
-    if (!m_mediaPlayer || event->button() != Qt::LeftButton)
-    {
-        QQuickPaintedItem::mousePressEvent(event);
-        return;
-    }
-
-    const QPointF pos = event->position();
-
-    if (playButtonRect().contains(pos))
-    {
-        togglePause();
-    }
-    else if (backButtonRect().contains(pos))
-    {
-        seekRelative(-10000);
-    }
-    else if (forwardButtonRect().contains(pos))
-    {
-        seekRelative(10000);
-    }
-    else if (muteButtonRect().contains(pos))
-    {
-        setMuted(!muted());
-    }
-    else if (volumeDownButtonRect().contains(pos))
-    {
-        setVolume(volume() - 5);
-    }
-    else if (volumeUpButtonRect().contains(pos))
-    {
-        setVolume(volume() + 5);
-    }
-    else if (progressRect().contains(pos))
-    {
-        const QRectF progress = progressRect();
-        const qreal ratio = qBound<qreal>(
-            0.0,
-            (pos.x() - progress.left()) / qMax<qreal>(1.0, progress.width()),
-            1.0);
-
-        const qint64 length = durationMs();
-        if (length > 0)
-            seekTo(static_cast<qint64>(static_cast<qreal>(length) * ratio));
-    }
-    else
-    {
-        QQuickPaintedItem::mousePressEvent(event);
-        return;
-    }
-
-    forceActiveFocus();
-    event->accept();
 }
 
 void* VlcVideoItem::lockVideo(void* opaque, void** planes)
