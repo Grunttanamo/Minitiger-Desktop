@@ -58,10 +58,14 @@ if errorlevel 1 (
 
 echo.
 echo [Minitiger Web] Syncing %MINITIGER_WEB_BRANCH%...
-git fetch origin "%MINITIGER_WEB_BRANCH%"
+
+REM A previous --single-branch clone may still have a fetch refspec for the
+REM old public Web branch. Fetch the configured Desktop-Web branch explicitly
+REM into its remote-tracking ref so origin/%MINITIGER_WEB_BRANCH% always exists.
+git fetch --prune origin "+refs/heads/%MINITIGER_WEB_BRANCH%:refs/remotes/origin/%MINITIGER_WEB_BRANCH%"
 if errorlevel 1 (
     popd
-    echo ERROR: Failed to fetch Minitiger Web.
+    echo ERROR: Failed to fetch Minitiger Desktop Web.
     exit /b 1
 )
 
