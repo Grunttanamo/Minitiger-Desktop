@@ -63,12 +63,14 @@ Phase 1.4 maps Jellyfin's 1-based relative stream selection to libVLC's actual t
 
 ### Phase 2.0 bundled Minitiger Web test
 
-The Windows build now prepares Minitiger Web automatically from:
+The Windows build now prepares the dedicated Minitiger Desktop Web frontend automatically from:
 
 ```text
-https://github.com/Grunttanamo/Minitiger
-branch: minitiger-v12.1
+https://github.com/Grunttanamo/Minitiger-Desktop-Web
+branch: minitiger-desktop-v12.1
 ```
+
+The public `Grunttanamo/Minitiger` repository remains the independent Web / Sidecar build.
 
 On the first build, `prepare-minitiger-web.bat` clones the frontend under `dev/windows/deps/minitiger-web-src`, runs `npm ci` and `npm run build:production`, then embeds `dist/` into the desktop executable. Later builds skip the npm rebuild while the source commit is unchanged.
 
@@ -112,7 +114,7 @@ Everything stays below `dev/windows/deps/`.
 
 - `setup.bat` - prepare the base Windows/Jellyfin Desktop toolchain
 - `setup-vlc.bat` - prepare Minitiger's experimental libVLC dependency
-- `prepare-minitiger-web.bat` - sync and build the authoritative Minitiger Web frontend
+- `prepare-minitiger-web.bat` - sync and build the dedicated Minitiger Desktop Web frontend
 - `build.bat` - prepare Minitiger Web, configure the desktop, and build MPV + libVLC + bundled frontend
 - `bundle.bat` - create installer and portable ZIP
 - `run.bat` - run the development executable
