@@ -231,9 +231,11 @@ Window
     z: 100
     backgroundColor: "transparent"
 
-    // this is needed to prevent intermittent(?) black screens when unminizing
-    // or resumsing from suspend (linux/{x11/wayland}, possibly others).
-    layer.enabled: true
+    // Keep the historical off-screen layer workaround on Linux where it
+    // prevents intermittent black frames after minimize/resume. On Windows
+    // the full WebEngineView layer forces an additional full-window texture
+    // composition pass and makes large dialogs/pages noticeably sluggish.
+    layer.enabled: !components.system.isWindows
 
     webChannel: webChannelObject
     settings.errorPageEnabled: false
