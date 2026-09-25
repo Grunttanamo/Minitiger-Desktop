@@ -112,9 +112,17 @@ set "DEPS_CMAKE=%DEPS_DIR:\=/%"
 set "VLC_CMAKE=%VLC_DIR:\=/%"
 set "MINITIGER_WEB_CMAKE=%MINITIGER_WEB_DIST_DIR:\=/%"
 
+set "MINITIGER_BUILD_TYPE=RelWithDebInfo"
+set "MINITIGER_UPDATE_CHECK=ON"
+if /I "%MINITIGER_DISTRIBUTION%"=="1" (
+    set "MINITIGER_BUILD_TYPE=Release"
+    set "MINITIGER_UPDATE_CHECK=OFF"
+    echo Distribution build mode: Release, update checker disabled.
+)
+
 echo Configuring...
 cmake -GNinja ^
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+    -DCMAKE_BUILD_TYPE=!MINITIGER_BUILD_TYPE! ^
     -DCMAKE_INSTALL_PREFIX=output ^
     -DQTROOT=%QTROOT% ^
     -DMPV_INCLUDE_DIR="%DEPS_CMAKE%/mpv/include" ^
@@ -125,7 +133,9 @@ cmake -GNinja ^
     -DVLC_RUNTIME_DIR="%VLC_CMAKE%" ^
     -DENABLE_BUNDLED_MINITIGER_WEB=ON ^
     -DMINITIGER_WEB_DIR="%MINITIGER_WEB_CMAKE%" ^
-    -DCHECK_FOR_UPDATES=ON ^
+    -DCHECK_FOR_UPDATES=!MINITIGER_UPDATE_CHECK! ^
+    -DVCRUNTIME_DIR="%DEPS_CMAKE%/vcruntime" ^
+    -DVCREDIST_EXE="%DEPS_CMAKE%/vc_redist.x64.exe" ^
     -DUSE_STATIC_MPVQT=ON ^
     "%PROJECT_ROOT%"
 if errorlevel 1 (
