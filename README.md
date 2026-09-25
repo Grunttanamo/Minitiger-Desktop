@@ -39,6 +39,33 @@ The public Minitiger Web / Sidecar project remains independent and must stay com
 Minitiger Desktop bundles its own Desktop-focused frontend fork:
 [Grunttanamo/Minitiger-Desktop-Web](https://github.com/Grunttanamo/Minitiger-Desktop-Web)
 
+## Minitiger Virtual Sync Companion
+
+Some server-synced Minitiger features use the optional **Minitiger Virtual Sync** companion plugin on the Jellyfin Server.
+
+The plugin is distributed through an official Jellyfin plugin repository. Add this URL in:
+
+`Jellyfin Dashboard → Plugins → Repositories`
+
+```text
+https://raw.githubusercontent.com/Grunttanamo/Minitiger/minitiger-v12.1/plugin-repository/manifest.json
+```
+
+Then:
+
+1. Add a repository named **Minitiger** using the URL above.
+2. Open **Plugins → Catalog**.
+3. Install **Minitiger Virtual Sync**.
+4. Restart Jellyfin.
+
+Once the repository is added, Jellyfin can install and update to the latest compatible published Minitiger Virtual Sync version through the normal Plugin Catalog.
+
+Full plugin setup and compatibility notes:
+[Minitiger Virtual Sync · Plugin Setup](https://github.com/Grunttanamo/Minitiger/blob/minitiger-v12.1/PLUGIN_SETUP.md)
+
+> [!NOTE]
+> Minitiger Desktop itself remains a standalone client. The companion plugin is only needed for Minitiger features that require server-side synchronization or companion endpoints.
+
 ## Native VLC · Phase 1
 
 Phase 1 is being built in small steps so the existing MPV playback path remains available as a safe fallback.
