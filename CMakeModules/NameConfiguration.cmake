@@ -1,9 +1,8 @@
 set(MAIN_TARGET JellyfinDesktop)
 
-# Keep the upstream executable name during the first experimental phase so the
-# existing Windows packaging stays compatible. Branding and data paths are
-# already separated from stock Jellyfin Desktop.
-set(MAIN_NAME jellyfin-desktop)
+# Public-facing executable/application name.
+# Data paths stay isolated from stock Jellyfin Desktop via DATA_NAME below.
+set(MAIN_NAME minitiger-desktop)
 
 # Data directory name - also used for QCoreApplication::applicationName.
 # Minitiger must never share profiles/cache/settings with stock Jellyfin Desktop.
@@ -13,7 +12,7 @@ if(APPLE)
   set(MAIN_NAME "Jellyfin Desktop")
   set(DATA_NAME "Minitiger Desktop")
 elseif(WIN32)
-  set(MAIN_NAME "Jellyfin Desktop")
+  set(MAIN_NAME "Minitiger Desktop")
   set(DATA_NAME "Minitiger Desktop")
 endif()
 
