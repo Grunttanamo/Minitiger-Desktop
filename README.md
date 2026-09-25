@@ -53,7 +53,7 @@ https://raw.githubusercontent.com/Grunttanamo/Minitiger-Desktop-Web/minitiger-de
 
 Then:
 
-1. Add a repository named **Minitiger** using the URL above.
+1. Add a repository named **Minitiger Desktop** using the URL above.
 2. Open **Plugins → Catalog**.
 3. Install **Minitiger Virtual Sync**.
 4. Restart Jellyfin.
