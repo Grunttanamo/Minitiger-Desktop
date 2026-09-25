@@ -18,6 +18,8 @@ option(MACOS_LAUNCH_WRAPPER "Wrap macOS binary in a shell script to block DYLD_F
 option(COVERAGE "Gemerate test code coverage with gcov" OFF)
 option(ENABLE_BUNDLED_MINITIGER_WEB "Embed a built Minitiger Web frontend into the desktop executable" OFF)
 set(MINITIGER_WEB_DIR "" CACHE PATH "Path to the built Minitiger Web dist directory")
+set(VCRUNTIME_DIR "" CACHE PATH "Path to extracted Microsoft VC runtime DLLs for Windows packaging")
+set(VCREDIST_EXE "" CACHE FILEPATH "Path to vc_redist.x64.exe for Windows installer packaging")
 
 if(ENABLE_BUNDLED_MINITIGER_WEB)
     if(NOT EXISTS "${MINITIGER_WEB_DIR}/index.html")
