@@ -37,7 +37,8 @@ else()
   set(INSTALLER_ARCH_STR x86)
 endif()
 
-set(INSTALLER_BASE_NAME "JellyfinDesktop-${VERSION_STRING}-${INSTALLER_ARCH_STR}")
+set(PACKAGE_BASE_NAME "Minitiger-Desktop-${VERSION_STRING}-windows-${INSTALLER_ARCH_STR}")
+set(INSTALLER_BASE_NAME "${PACKAGE_BASE_NAME}-Installer")
 set(INSTALLER_OUTPUT_NAME "${INSTALLER_BASE_NAME}.exe")
 
 # Create the installer using Inno Setup
@@ -61,7 +62,8 @@ add_custom_target(JellyfinDesktopInstaller
 add_custom_target(windows_package DEPENDS JellyfinDesktopInstaller)
 
 # Create portable ZIP archive (includes bundled runtime DLLs in root)
-set(ZIP_OUTPUT_NAME "${INSTALLER_BASE_NAME}.zip")
+set(ZIP_BASE_NAME "${PACKAGE_BASE_NAME}-Portable")
+set(ZIP_OUTPUT_NAME "${ZIP_BASE_NAME}.zip")
 set(ZIP_STAGING_DIR "${CMAKE_CURRENT_BINARY_DIR}/portable")
 
 # Configure the prepare script
