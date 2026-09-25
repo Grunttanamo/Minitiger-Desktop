@@ -4,6 +4,7 @@
 set(SOURCE_DIR "@CMAKE_INSTALL_PREFIX@")
 set(ZIP_DIR "@CMAKE_CURRENT_BINARY_DIR@/portable")
 set(PROJECT_SOURCE_DIR "@PROJECT_SOURCE_DIR@")
+set(VCRUNTIME_DIR "@VCRUNTIME_DIR@")
 
 # Clean and create ZIP staging directory
 file(REMOVE_RECURSE "${ZIP_DIR}")
@@ -25,7 +26,6 @@ foreach(f ${ALL_FILES})
 endforeach()
 
 # Copy runtime DLLs to root (for portable use)
-set(VCRUNTIME_DIR "${PROJECT_SOURCE_DIR}/deps/vcruntime")
 if(EXISTS "${VCRUNTIME_DIR}")
   file(GLOB RUNTIME_DLLS "${VCRUNTIME_DIR}/*.dll")
   foreach(dll ${RUNTIME_DLLS})
@@ -34,7 +34,25 @@ if(EXISTS "${VCRUNTIME_DIR}")
   message(STATUS "Bundled VC runtime DLLs for portable package")
 endif()
 
-# Create portable marker file
+# Defensive privacy cleanup: distributable portable archives must never
+# contain profiles, settings, cache, logs, browser storage or runtime state.
+file(REMOVE_RECURSE
+  "${ZIP_DIR}/data"
+  "${ZIP_DIR}/cache"
+  "${ZIP_DIR}/profiles"
+  "${ZIP_DIR}/logs"
+)
+foreach(private_file
+  profiles.json
+  jellyfin-desktop.conf
+  storage.json
+  LocalStorage
+)
+  file(REMOVE "${ZIP_DIR}/${private_file}")
+endforeach()
+
+# Create portable marker file. On first launch Minitiger will create fresh
+# data/ and cache/ directories next to the executable.
 file(WRITE "${ZIP_DIR}/portable" "")
 message(STATUS "Created portable marker file")
 
