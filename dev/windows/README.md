@@ -24,6 +24,23 @@ dev\windows\build.bat
 dev\windows\run.bat
 ```
 
+### Build clean private distribution packages
+
+To build a sendable Windows installer and portable ZIP locally without
+publishing anything to GitHub:
+
+```powershell
+.\dev\windows\package-clean.bat
+```
+
+The script performs a Release build with the desktop update checker disabled,
+recreates the packaging staging directory from scratch, validates that the
+portable ZIP contains no profiles/settings/cache/logs/browser storage, and
+writes the final files to `dist/` together with SHA-256 hashes and build
+information.
+
+No GitHub Release or GitHub Actions upload is triggered by this command.
+
 ### Phase 1.1 embedded VLC surface test
 
 Normal startup still uses MPV. To test the isolated embedded libVLC surface with a local media file:
@@ -108,7 +125,8 @@ Everything stays below `dev/windows/deps/`.
 
 - `dev/windows/deps/` - downloaded Qt, mpv, VLC and packaging dependencies
 - `build/` - build output; safe to delete for a clean rebuild
-- `build/src/Jellyfin Desktop.exe` - temporary Phase 1 executable name
+- `build/src/Minitiger Desktop.exe` - development executable
+- `dist/` - locally built clean Installer/Portable packages; ignored by Git
 
 ## Scripts
 
@@ -116,7 +134,9 @@ Everything stays below `dev/windows/deps/`.
 - `setup-vlc.bat` - prepare Minitiger's experimental libVLC dependency
 - `prepare-minitiger-web.bat` - sync and build the dedicated Minitiger Desktop Web frontend
 - `build.bat` - prepare Minitiger Web, configure the desktop, and build MPV + libVLC + bundled frontend
-- `bundle.bat` - create installer and portable ZIP
+- `bundle.bat` - create installer and portable ZIP from a clean staging directory
+- `package-clean.bat` - one-command private Release build + packaging + privacy validation
+- `package-clean-finalize.ps1` - validate portable contents and create SHA-256/build info
 - `run.bat` - run the development executable
 - `test.bat` - run unit tests
 - `common.bat` - pinned versions and shared paths
@@ -193,7 +213,7 @@ At this stage:
 - libVLC is downloaded, validated, linked and prepared for Windows bundling.
 - There is **no VLC video surface yet**.
 - There is **no MPV/VLC selector yet**.
-- The executable is still named `Jellyfin Desktop.exe` during the foundation step.
+- The Windows executable is branded `Minitiger Desktop.exe`.
 - Minitiger application data and WebEngine storage are separated from stock Jellyfin Desktop.
 
 Do not treat this branch as a stable Minitiger Desktop release yet.
