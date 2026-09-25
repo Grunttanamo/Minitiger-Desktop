@@ -131,7 +131,6 @@ void ShowLicenseInfo()
 /////////////////////////////////////////////////////////////////////////////////////////
 QStringList g_qtFlags = {
   "--enable-gpu-rasterization",
-  "--enable-smooth-scrolling",
   "--disable-features=MediaSessionService"
 };
 
