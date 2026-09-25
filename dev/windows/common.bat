@@ -22,7 +22,7 @@ set VLC_DIR=%DEPS_DIR%\vlc-%VLC_VERSION%
 set MINITIGER_WEB_SOURCE_DIR=%DEPS_DIR%\minitiger-web-src
 set MINITIGER_WEB_DIST_DIR=%MINITIGER_WEB_SOURCE_DIR%\dist
 set BUILD_DIR=%PROJECT_ROOT%\build
-set EXE_NAME=Jellyfin Desktop.exe
+set EXE_NAME=Minitiger Desktop.exe
 
 REM === Find Visual Studio ===
 set VCVARS=
