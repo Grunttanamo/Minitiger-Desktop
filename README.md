@@ -43,12 +43,12 @@ Minitiger Desktop bundles its own Desktop-focused frontend fork:
 
 Some server-synced Minitiger features use the optional **Minitiger Virtual Sync** companion plugin on the Jellyfin Server.
 
-The plugin is distributed through an official Jellyfin plugin repository. Add this URL in:
+Minitiger Desktop uses its own companion-plugin release channel, separate from the older Minitiger Web / Sidecar plugin line. Add this URL in:
 
 `Jellyfin Dashboard → Plugins → Repositories`
 
 ```text
-https://raw.githubusercontent.com/Grunttanamo/Minitiger/minitiger-v12.1/plugin-repository/manifest.json
+https://raw.githubusercontent.com/Grunttanamo/Minitiger-Desktop-Web/minitiger-desktop-v12.1/plugin-repository/manifest.json
 ```
 
 Then:
@@ -58,10 +58,10 @@ Then:
 3. Install **Minitiger Virtual Sync**.
 4. Restart Jellyfin.
 
-Once the repository is added, Jellyfin can install and update to the latest compatible published Minitiger Virtual Sync version through the normal Plugin Catalog.
+Once the repository is added, Jellyfin can install and update to the latest compatible **Desktop companion** release through the normal Plugin Catalog. Desktop companion releases are built from the current plugin source in `Grunttanamo/Minitiger-Desktop-Web`, not from the older Sidecar plugin channel.
 
-Full plugin setup and compatibility notes:
-[Minitiger Virtual Sync · Plugin Setup](https://github.com/Grunttanamo/Minitiger/blob/minitiger-v12.1/PLUGIN_SETUP.md)
+Full plugin setup, source and compatibility notes:
+[Minitiger Virtual Sync · Desktop Plugin Setup](https://github.com/Grunttanamo/Minitiger-Desktop-Web/blob/minitiger-desktop-v12.1/PLUGIN_SETUP.md)
 
 > [!NOTE]
 > Minitiger Desktop itself remains a standalone client. The companion plugin is only needed for Minitiger features that require server-side synchronization or companion endpoints.
