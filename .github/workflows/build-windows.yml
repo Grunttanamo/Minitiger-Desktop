@@ -12,6 +12,21 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/**'
+      - 'native/**'
+      - 'resources/**'
+      - 'bundle/win/**'
+      - 'dev/windows/**'
+      - 'external/**'
+      - 'CMakeLists.txt'
+      - 'CMakeModules/**'
+      - 'VERSION'
+      - '.github/workflows/build-windows.yml'
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

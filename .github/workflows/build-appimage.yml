@@ -3,9 +3,10 @@ name: build-appimage
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    branches:
-      - master
+
+concurrency:
+  group: build-appimage-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

@@ -2,9 +2,33 @@ name: test
 
 on:
   pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'external/**'
+      - 'native/**'
+      - 'resources/**'
+      - 'CMakeLists.txt'
+      - 'CMakeModules/**'
+      - 'debian/**'
+      - '.github/workflows/test.yml'
   push:
     branches:
       - master
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'external/**'
+      - 'native/**'
+      - 'resources/**'
+      - 'CMakeLists.txt'
+      - 'CMakeModules/**'
+      - 'debian/**'
+      - '.github/workflows/test.yml'
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
