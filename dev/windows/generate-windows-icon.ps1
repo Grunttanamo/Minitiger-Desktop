@@ -34,7 +34,7 @@ $source = [System.Drawing.Image]::FromFile($SourcePng)
 
 try {
     $size = 256
-    $bitmap = New-Object System.Drawing.Bitmap(
+    $bitmap = [System.Drawing.Bitmap]::new(
         $size,
         $size,
         [System.Drawing.Imaging.PixelFormat]::Format32bppArgb
