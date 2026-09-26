@@ -1,301 +1,288 @@
 # 🐯 Minitiger Desktop
 
-**Experimental custom desktop client for Jellyfin, based on [Jellyfin Desktop](https://github.com/jellyfin/jellyfin-desktop).**
+**A custom standalone Jellyfin desktop client with the Minitiger interface built directly into the application.**
+
+Minitiger Desktop is based on [Jellyfin Desktop](https://github.com/jellyfin/jellyfin-desktop), but ships its own Desktop-focused Minitiger frontend, native MPV and libVLC playback paths, isolated application data and Windows distribution packaging.
 
 > [!WARNING]
-> **Minitiger Desktop is currently early experimental development software.**
+> **Minitiger Desktop is still development software.**
 >
-> Native VLC playback and bundled Minitiger Web integration are still **experimental**, and there is currently **no stable Minitiger Desktop release**.
-> Do not expect this branch to be suitable for normal daily use yet.
+> The current Windows build is usable for testing and private distribution, but there is no signed public stable release channel yet. Windows SmartScreen may therefore show an **Unknown Publisher** warning for locally built installers.
 
-## Current development branch
+## Current status
+
+Current application version:
 
 ```text
-minitiger-native-vlc-phase1
+2.0.0-dev
 ```
 
-The upstream `master` branch is kept as the clean Jellyfin Desktop base. Minitiger-specific work is developed separately.
+Primary Desktop code:
 
-## Goal
+```text
+Repository: Grunttanamo/Minitiger-Desktop
+Primary branch: master
+```
 
-The long-term goal is a standalone **Minitiger Desktop** application that only needs a normal Jellyfin Server connection.
+Bundled Desktop frontend:
+
+```text
+Repository: Grunttanamo/Minitiger-Desktop-Web
+Branch: minitiger-desktop-v12.1
+```
+
+The older public Web / Sidecar project remains separate:
+
+[Grunttanamo/Minitiger](https://github.com/Grunttanamo/Minitiger)
+
+Minitiger Desktop does **not** require the Minitiger Web sidecar or a second frontend port.
+
+---
+
+## What Minitiger Desktop includes
 
 ```text
 Jellyfin Server
       │
       ▼
 Minitiger Desktop
-├── bundled Minitiger Web frontend
-├── Minitiger settings and UI
+├── bundled Minitiger Desktop Web frontend
+├── Minitiger UI / settings / profiles
 ├── native MPV playback
-└── native libVLC playback
+├── native libVLC playback
+├── private internal localhost web server
+└── optional Minitiger Virtual Sync server companion
 ```
 
-For a Minitiger Desktop user, the finished client should not require a separately installed Minitiger Web sidecar or a second frontend port.
+### Bundled Minitiger frontend
 
-The public Minitiger Web / Sidecar project remains independent and must stay compatible for browser and Sidecar users:
-[Grunttanamo/Minitiger](https://github.com/Grunttanamo/Minitiger)
+The Desktop-specific Minitiger Web frontend is built from:
 
-Minitiger Desktop bundles its own Desktop-focused frontend fork:
 [Grunttanamo/Minitiger-Desktop-Web](https://github.com/Grunttanamo/Minitiger-Desktop-Web)
+
+During the Windows build, Minitiger Desktop automatically syncs the `minitiger-desktop-v12.1` branch, creates a production frontend build and embeds it into the native application.
+
+At runtime, the embedded frontend is served by a private HTTP server inside the **same Minitiger Desktop process** on `127.0.0.1`.
+
+There is no separate Sidecar process and no required `:8098` port.
+
+### Native video playback
+
+Minitiger Desktop keeps both native player backends:
+
+- **MPV** — the established/default native playback path.
+- **libVLC** — the integrated alternative native backend.
+
+The VLC backend is embedded inside the Minitiger Desktop window and supports the normal Jellyfin playback flow, including:
+
+- play / pause / stop;
+- seeking;
+- volume and mute;
+- playback speed;
+- resume position and progress reporting;
+- watched state / playback completion;
+- queue progression and automatic next episode;
+- embedded audio track switching;
+- embedded subtitle switching;
+- subtitles off;
+- external Jellyfin subtitle tracks.
+
+The current VLC callback renderer has also been adjusted for display-sized output so subtitles and fine image detail render substantially cleaner than the original proof-of-concept implementation.
+
+MPV remains available as the fallback.
+
+### Minitiger profiles and isolated data
+
+Minitiger Desktop keeps its own application data separate from stock Jellyfin Desktop.
+
+The native shell supports profile-specific data and WebEngine storage, and the bundled Minitiger frontend provides the Minitiger profile experience without reusing a normal Jellyfin Desktop profile directory.
+
+This means stock Jellyfin Desktop and Minitiger Desktop can coexist on the same Windows installation without intentionally sharing their normal local profile/cache data.
+
+---
 
 ## Minitiger Virtual Sync Companion
 
-Some server-synced Minitiger features use the optional **Minitiger Virtual Sync** companion plugin on the Jellyfin Server.
+Some Minitiger features need server-side support. For those features, install **Minitiger Virtual Sync** on the Jellyfin Server.
 
-Minitiger Desktop uses its own companion-plugin release channel, separate from the older Minitiger Web / Sidecar plugin line. Add this URL in:
+Minitiger Desktop has its **own companion-plugin release channel**, independent from the older Minitiger Web / Sidecar plugin line.
 
-`Jellyfin Dashboard → Plugins → Repositories`
+### Jellyfin plugin repository
+
+Open:
+
+```text
+Jellyfin Dashboard
+→ Plugins
+→ Repositories
+```
+
+Add a repository named:
+
+```text
+Minitiger Desktop
+```
+
+Repository URL:
 
 ```text
 https://raw.githubusercontent.com/Grunttanamo/Minitiger-Desktop-Web/minitiger-desktop-v12.1/plugin-repository/manifest.json
 ```
 
-Then:
+Then open **Plugins → Catalog**, install **Minitiger Virtual Sync**, and restart Jellyfin.
 
-1. Add a repository named **Minitiger Desktop** using the URL above.
-2. Open **Plugins → Catalog**.
-3. Install **Minitiger Virtual Sync**.
-4. Restart Jellyfin.
+Current Desktop companion release:
 
-Once the repository is added, Jellyfin can install and update to the latest compatible **Desktop companion** release through the normal Plugin Catalog. Desktop companion releases are built from the current plugin source in `Grunttanamo/Minitiger-Desktop-Web`, not from the older Sidecar plugin channel.
+```text
+Minitiger Virtual Sync 1.6.7.0
+Jellyfin plugin ABI: 12.0.0.0
+```
 
-Full plugin setup, source and compatibility notes:
-[Minitiger Virtual Sync · Desktop Plugin Setup](https://github.com/Grunttanamo/Minitiger-Desktop-Web/blob/minitiger-desktop-v12.1/PLUGIN_SETUP.md)
+Release:
+[Minitiger Virtual Sync 1.6.7.0 · Desktop](https://github.com/Grunttanamo/Minitiger-Desktop-Web/releases/tag/desktop-plugin-v1.6.7.0)
+
+Plugin source and setup notes:
+[Minitiger Desktop Virtual Sync setup](https://github.com/Grunttanamo/Minitiger-Desktop-Web/blob/minitiger-desktop-v12.1/PLUGIN_SETUP.md)
+
+The plugin currently provides server-side services used by Minitiger features such as profile synchronization, virtual-library support, background helpers, image-maintenance tools and local trailer support.
 
 > [!NOTE]
-> Minitiger Desktop itself remains a standalone client. The companion plugin is only needed for Minitiger features that require server-side synchronization or companion endpoints.
+> Basic Minitiger Desktop startup and normal Jellyfin connectivity do not require the companion plugin. It is required only for Minitiger features that depend on its server-side endpoints.
 
-## Native VLC · Phase 1
+---
 
-Phase 1 is being built in small steps so the existing MPV playback path remains available as a safe fallback.
+## Windows builds
 
-### Phase 1.0 · Foundation
+The current distribution target is **Windows x64**.
 
-Current work:
+### First development setup
 
-- [x] Fork the current Jellyfin Desktop codebase
-- [x] Separate Minitiger application data from stock Jellyfin Desktop
-- [x] Add experimental Minitiger Desktop window/tray branding
-- [x] Add libVLC build configuration
-- [x] Add Windows libVLC 3.0.23 dependency setup
-- [x] Prepare Windows runtime bundling for libVLC
-- [x] Keep MPV unchanged as the active player
-- [x] Verify the first Windows build on the Minitiger branch
-- [x] Add the first experimental embedded VLC software video surface
-- [x] Add the first native VLC player backend path
-- [x] Add local MPV / VLC video backend selection
-- [x] Add Phase 1.2 VLC play/pause/seek/volume/mute control prototype
-- [x] Wire and validate Jellyfin audio/subtitle track controls with libVLC
-- [x] Connect basic VLC position/duration/playback state signals to Jellyfin
-- [x] Verify first end-to-end Jellyfin → embedded VLC playback with normal Jellyfin OSD
-- [x] Verify Jellyfin progress/resume, episode end and queue/auto-next with VLC
-- [x] Add Phase 2.0 build path for bundling Minitiger Web directly into Minitiger Desktop (Windows validation pending)
-
-**Phase 1.0 is verified:** the Windows build completes, Minitiger Desktop starts, and the existing MPV playback path still works.
-
-### Phase 1.1 · Embedded VLC surface proof
-
-Phase 1.1 adds an isolated developer test mode for the first embedded libVLC video surface. It does **not** replace MPV or intercept normal Jellyfin playback yet.
-
-After rebuilding, launch a local media file through libVLC with:
+From the repository root:
 
 ```powershell
-.\dev\windows\run.bat --vlc-test "C:\Path\To\video.mkv"
+.\dev\windows\setup.bat
+.\dev\windows\setup-vlc.bat
 ```
 
-In this test mode the normal WebEngine and MPV visual layers are hidden and libVLC decodes into a Qt Quick surface inside the same Minitiger Desktop window.
+The setup prepares the native build toolchain plus Qt, MPV, libVLC and packaging dependencies below the repository development directories.
 
-This first surface intentionally uses VLC video callbacks and a Qt image buffer. It is a proof that libVLC can render inside our existing Qt window. Hardware-optimized rendering and the real MPV/VLC selector come later.
+### Development build
 
-Normal startup without `--vlc-test` continues to use the existing Jellyfin Desktop / MPV path.
+```powershell
+.\dev\windows\build.bat
+.\dev\windows\run.bat
+```
 
-### Phase 1.2 · VLC control prototype
+For more detailed Windows build notes, see:
 
-The isolated VLC test surface now exposes the first reusable playback-control API:
+[dev/windows/README.md](dev/windows/README.md)
 
-- play / pause / resume / stop
-- absolute and relative seek
-- position and duration
-- volume and mute
+---
 
-The test player intentionally starts at **40% volume** for safer development testing.
+## Clean Installer + Portable build
 
-While `--vlc-test` is active:
+For a private/sendable Windows distribution, use:
+
+```powershell
+.\dev\windows\package-clean.bat
+```
+
+This performs the complete local distribution build:
+
+- syncs and builds the current Minitiger Desktop Web frontend;
+- builds Minitiger Desktop in Release mode;
+- bundles Qt / Qt WebEngine;
+- bundles MPV;
+- bundles libVLC and its runtime plugins;
+- bundles the required VC runtime files;
+- creates the Inno Setup installer;
+- creates a portable ZIP;
+- recreates packaging staging directories from scratch;
+- validates the portable ZIP for accidental private/runtime data;
+- generates SHA-256 checksums;
+- writes build metadata;
+- performs **no GitHub upload or release**.
+
+The final files are written to:
 
 ```text
-Space   Pause / Play
-← / →   Seek -10s / +10s
-↑ / ↓   Volume +5 / -5
-M       Mute / Unmute
+dist/
+├── Minitiger-Desktop-2.0.0-dev-windows-x64-Installer.exe
+├── Minitiger-Desktop-2.0.0-dev-windows-x64-Portable.zip
+├── SHA256SUMS.txt
+└── BUILD-INFO.txt
 ```
 
-A clickable in-video test control bar now provides Play/Pause, ±10 second seek, clickable timeline seeking, mute, and volume controls. The keyboard shortcuts remain available as a second test path. These controls are still developer-only; the next integration step is to route the normal Minitiger/Jellyfin player controls through the selectable native backend.
+### Privacy validation
 
-### Phase 1.3 · Jellyfin → VLC integration
+The clean packaging step explicitly checks that the Portable ZIP does not accidentally contain developer/runtime data such as:
 
-Phase 1.3 connects the existing Jellyfin native-player bridge to the embedded VLC surface.
+- Minitiger profiles;
+- saved server information;
+- browser Local Storage;
+- IndexedDB;
+- cookies/history;
+- cache;
+- logs;
+- `data/` or `cache/` directories;
+- Git metadata;
+- `node_modules`.
 
-Open **Client Settings** in Minitiger Desktop and select:
+If forbidden runtime/private files are found, packaging fails instead of producing the final Portable ZIP.
+
+---
+
+## Installer vs Portable
+
+### Installer
+
+The installer registers **Minitiger Desktop** as its own Windows application and does not intentionally collide with a normal Jellyfin Desktop installation.
+
+User-specific Minitiger data is created when that user launches Minitiger Desktop.
+
+### Portable
+
+The Portable ZIP contains a root-level marker file named:
 
 ```text
-Native Video Player
-└── VLC (Experimental)
+portable
 ```
 
-Then play a normal video from Jellyfin. No `--vlc-test` argument is needed.
+When this marker is present, Minitiger Desktop keeps its portable data/cache alongside the extracted application instead of using its normal installed application-data location.
 
-The intended Phase 1.3 path is:
+A fresh Portable ZIP therefore starts without personal `data/` or `cache/` folders. They are created only when the recipient launches that extracted copy.
 
-```text
-Jellyfin Web
-    ↓
-native player bridge
-    ↓
-PlayerComponent
-    ├── MPV (default)
-    └── VLC (experimental)
-```
+> [!IMPORTANT]
+> When sharing a Portable build, share the untouched ZIP from `dist/`.  
+> If you extract and run it yourself first, your test data will naturally be created inside that extracted test folder.
 
-The VLC backend currently forwards:
+---
 
-- Jellyfin video URLs directly to libVLC
-- start/resume position
-- play / pause / stop
-- seeking
-- volume and mute
-- playback speed
-- position and duration updates
-- playing / paused / ended / error state back to Jellyfin
+## Project layout
 
-The normal Jellyfin video OSD remains above the native VLC surface. The old Phase 1.2 debug control bar is only shown when using `--vlc-test`.
+The Desktop project is deliberately split into two repositories:
 
-**Verified on Windows:** normal Jellyfin video playback successfully reaches the embedded libVLC backend and renders underneath the standard Jellyfin playback OSD.
+| Repository | Purpose |
+| --- | --- |
+| [Minitiger-Desktop](https://github.com/Grunttanamo/Minitiger-Desktop) | Native Qt desktop shell, MPV/libVLC integration, embedded frontend server, Windows packaging |
+| [Minitiger-Desktop-Web](https://github.com/Grunttanamo/Minitiger-Desktop-Web) | Desktop-focused Jellyfin/Minitiger frontend and current Virtual Sync companion source |
 
-**Also verified on Windows:** Jellyfin resume/progress behavior, episode completion and automatic next-episode/queue progression work with the VLC backend.
+The public [Minitiger](https://github.com/Grunttanamo/Minitiger) repository is the separate Web / Sidecar project and is not the Desktop development target.
 
-### Phase 1.4 · Audio and subtitle tracks
+---
 
-Phase 1.4 wires Jellyfin's existing audio-language and subtitle selectors into libVLC.
+## Upstream
 
-Implemented for the VLC backend:
+Minitiger Desktop is a community fork/customization of:
 
-- embedded audio track switching
-- embedded subtitle track switching
-- subtitles off
-- external Jellyfin subtitle URLs via VLC media-player slaves
-- initial/default Jellyfin audio and subtitle selection when playback starts
-
-**Verified on Windows:** embedded audio track switching, embedded subtitle switching, subtitles off, external Jellyfin subtitle tracks, and initial/default track selection all work during real Jellyfin playback.
-
-VLC remains experimental; MPV is still the default and fallback.
-
-### Phase 1.5a · VLC image quality
-
-The first VLC renderer still uses the software callback path `libVLC → QImage → Qt Quick`. A Windows comparison showed visibly rougher scaling than MPV, especially on anime line art and subtitles.
-
-Phase 1.5a forces Qt's smooth image transformation and pixel-aligns the destination rectangle before drawing the VLC frame. Windows validation showed a visible improvement, but MPV remained sharper.
-
-### Phase 1.5b · Display-sized VLC callback output
-
-Phase 1.5b asks libVLC itself to produce the callback frame at the actual Qt video-surface size while preserving the source aspect ratio. This moves the main resize step into libVLC before Qt draws the frame, instead of scaling a source-resolution frame only at the final QPainter stage.
-
-This is especially relevant to subtitles because libVLC 3's custom-memory callback path blends sub-pictures into the callback frame on the CPU. Producing a larger callback frame gives subtitle rendering and fine line art more pixels before the final display step.
-
-**Validated on Windows:** the display-sized callback path produces a visibly cleaner result and removes the previously obvious pixelation on subtitles and fine anime line art. The current software renderer is now considered good enough for the Phase 1 VLC backend.
-
-A future GPU/scene-graph renderer is optional optimization work rather than a blocker.
-
-## Bundled Minitiger Web · Phase 2.0
-
-Phase 2.0 begins the standalone-client transition.
-
-The authoritative **Desktop frontend** is now kept separate from the public Web / Sidecar build:
-
-```text
-Grunttanamo/Minitiger-Desktop-Web
-branch: minitiger-desktop-v12.1
-```
-
-The public `Grunttanamo/Minitiger` repository remains the Web / Sidecar project and is not used as the Desktop cleanup target.
-
-During a Windows desktop build, `dev/windows/prepare-minitiger-web.bat` clones or updates that branch, runs the production web build, and passes its `dist/` directory to CMake. Qt's resource compiler embeds the complete built frontend into the desktop executable. At runtime Minitiger Desktop exposes those embedded files through a private loopback HTTP server on an automatically selected free `127.0.0.1` port.
-
-The loopback server runs **inside the same Minitiger Desktop process**. It is not the old Minitiger Web sidecar, does not use `:8098`, and requires no separate service or process.
-
-The desktop connection screen still asks for / remembers a normal Jellyfin Server address. When the bundled frontend is enabled, a successful connection opens the internally hosted Minitiger Web frontend instead of navigating to the server-hosted Jellyfin Web UI.
-
-Minitiger Web receives the saved Jellyfin server address through the native shell, so the intended runtime becomes:
-
-```text
-Minitiger Desktop.exe
-├── internal 127.0.0.1:<automatic-port>
-│   └── bundled Minitiger Web
-├── MPV / libVLC
-└── normal Jellyfin Server (for example :8096)
-```
-
-The first `qrc://` runtime attempt successfully loaded the embedded frontend and Jellyfin server configuration, but Jellyfin Web's router requires a normal hierarchical web origin. Phase 2.0 therefore serves the same embedded resources through the internal loopback server instead.
-
-No Minitiger Web sidecar or fixed frontend port is required.
-
-**Windows validation:** the bundled Minitiger Web frontend now loads successfully through the internal localhost server. Full standalone navigation/playback validation with the old :8098 sidecar disabled is still pending.
-
-### Phase 2.1 · Standalone compatibility pass
-
-The first standalone UI validation showed that the bundled frontend loads successfully, but some Minitiger behavior still differs from the server-hosted frontend.
-
-The internal loopback origin is now stable at `http://127.0.0.1:38473/` whenever that port is available. This is required because WebStorage, IndexedDB and service-worker state are scoped to the full origin including the port; using a random port on every launch made each desktop start look like a new browser site.
-
-The Minitiger Web frontend also emits targeted desktop-compatibility diagnostics for layout mode plus Home and Library settings so remaining differences can be traced without guessing.
-
-**Status:** implementation complete; Windows behavior validation pending.
-
-## Player plan
-
-MPV is **not being removed**.
-
-The target architecture is:
-
-```text
-Minitiger Player UI
-        │
-        ▼
-Native Player Bridge
-   ├── MPV
-   └── libVLC
-```
-
-Users should eventually be able to choose the native playback engine locally on each device. During development, MPV stays available as the known-working fallback.
-
-## Windows development setup
-
-The upstream Jellyfin Desktop project provides its Windows development builds from its README / GitHub Actions artifacts rather than normal GitHub Releases. Minitiger Desktop follows the same codebase, but **there are no public Minitiger Desktop binaries yet**.
-
-For local development:
-
-```bat
-dev\windows\setup.bat
-dev\windows\setup-vlc.bat
-dev\windows\build.bat
-dev\windows\run.bat
-```
-
-`setup-vlc.bat` downloads a private VLC/libVLC 3.0.23 SDK/runtime into the repository's development dependency directory. It does **not** install or replace VLC on Windows.
-
-During this first foundation step the generated executable is intentionally still named `Jellyfin Desktop.exe`; Minitiger's application data and WebEngine storage are already separated so testing does not reuse the normal Jellyfin Desktop profile.
-
-See [dev/windows/README.md](dev/windows/README.md) for the Windows build notes.
-
-## Relationship to Jellyfin Desktop
-
-Minitiger Desktop is a fork of Jellyfin Desktop and is not an official Jellyfin project.
-
-Upstream:
 [Jellyfin Desktop](https://github.com/jellyfin/jellyfin-desktop)
 
-Minitiger-specific changes should remain isolated enough that useful upstream updates can continue to be incorporated later.
+It is not an official Jellyfin project and is not affiliated with the Jellyfin team.
+
+Where practical, the native Desktop work remains based on the upstream architecture so useful upstream changes can continue to be incorporated.
 
 ## License
 
-This project is based on Jellyfin Desktop and retains the upstream open-source licensing and notices. See [LICENSE](LICENSE) and the upstream project for details.
+This project retains the applicable upstream open-source licensing and notices.
+
+See [LICENSE](LICENSE) and the upstream Jellyfin Desktop project for details.
