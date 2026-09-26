@@ -553,10 +553,11 @@ void SystemComponent::hello(const QString& version)
 /////////////////////////////////////////////////////////////////////////////////////////
 QString SystemComponent::getNativeShellScript()
 {
-  static QString cachedScript;
-  if (!cachedScript.isEmpty()) {
-    return cachedScript;
-  }
+  // jmpInfo contains live settings (including the Jellyfin server chosen on
+  // the first Minitiger connection screen). Never cache that declaration:
+  // the first qrc page and the later bundled-http page have different origins,
+  // and the second page must receive the freshly persisted settings.
+  static QString cachedStaticScript;
 
   auto path = SettingsComponent::Get().getExtensionPath();
   qDebug() << QString("Using path for extension: %1").arg(path);
@@ -629,12 +630,15 @@ QString SystemComponent::getNativeShellScript()
     ":/web-client/extension/nativeshell.js"
   };
 
-  cachedScript = jmpInfoDeclaration;
-  for (const QString& scriptPath : scriptPaths) {
-    cachedScript += loadScript(scriptPath) + "\n";
+  if (cachedStaticScript.isEmpty())
+  {
+    for (const QString& scriptPath : scriptPaths)
+    {
+      cachedStaticScript += loadScript(scriptPath) + "\n";
+    }
   }
 
-  return cachedScript;
+  return jmpInfoDeclaration + cachedStaticScript;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

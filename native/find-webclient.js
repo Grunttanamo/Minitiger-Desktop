@@ -17,7 +17,24 @@ async function tryConnect(server) {
         }
 
         // In Minitiger Desktop this setting represents the Jellyfin API/server,
-        // not a separate web-client host.
+        // not a separate web-client host. Property assignment is asynchronous
+        // behind the NativeShell proxy, so persist it explicitly and wait for
+        // the Qt settings callback before navigating to the bundled web origin.
+        await new Promise((resolve, reject) => {
+            try {
+                window.api.settings.setValue(
+                    'main',
+                    'userWebClient',
+                    server,
+                    resolve
+                );
+            } catch (error) {
+                reject(error);
+            }
+        });
+
+        // Keep the in-page snapshot in sync too. This is only a local mirror;
+        // the authoritative value above is now safely persisted.
         window.jmpInfo.settings.main.userWebClient = server;
 
         // When the full Minitiger Web build is embedded, stay inside the
