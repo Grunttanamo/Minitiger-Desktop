@@ -23,3 +23,6 @@ deployment/dist
 
 # Local clean distribution artifacts (never committed/published)
 /dist/
+
+# Generated from the tracked Minitiger PNG during Windows builds
+bundle/win/minitiger.ico
