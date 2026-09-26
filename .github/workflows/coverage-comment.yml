@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: [test]
     types: [completed]
+    branches-ignore:
+      - master
 
 jobs:
   comment:
