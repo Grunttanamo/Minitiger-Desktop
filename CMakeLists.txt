@@ -7,6 +7,13 @@ endif()
 
 project(JellyfinDesktop CXX C)
 
+# The Windows executable icon is compiled from a .rc resource. Ninja/MSVC
+# requires the RC language to be enabled explicitly so rc.exe is part of the
+# generated build graph instead of the resource file being treated passively.
+if(WIN32)
+  enable_language(RC)
+endif()
+
 # we want this to be able to run clang-tidy
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "" FORCE)
 

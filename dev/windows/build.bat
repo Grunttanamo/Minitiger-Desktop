@@ -27,15 +27,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM === Eliminate every legacy Jellyfin icon fallback ===
-REM Some upstream Windows tooling may still reference bundle\win\jellyfin.ico.
-REM Make that file identical to the generated Minitiger icon before CMake runs.
-copy /Y "%PROJECT_ROOT%\bundle\win\minitiger.ico" "%PROJECT_ROOT%\bundle\win\jellyfin.ico" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to replace legacy Jellyfin Windows icon.
-    exit /b 1
-)
-
 REM === Prepare bundled Minitiger Web ===
 call "%~dp0prepare-minitiger-web.bat"
 if errorlevel 1 (

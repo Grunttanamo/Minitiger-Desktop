@@ -109,7 +109,7 @@ function Get-NormalizedIconHash {
         [System.Drawing.Icon]$Icon
     )
 
-    $size = 64
+    $size = 32
     $bitmap = [System.Drawing.Bitmap]::new(
         $size,
         $size,
@@ -153,7 +153,14 @@ function Get-NormalizedIconHash {
     }
 }
 
-$expectedIcon = [System.Drawing.Icon]::new($expectedIconPath)
+# ExtractAssociatedIcon() returns the shell-sized application icon
+# (normally 32x32). Select the same frame from the source ICO so the validation
+# compares like-for-like instead of hashing different resolutions.
+$expectedIcon = [System.Drawing.Icon]::new(
+    $expectedIconPath,
+    32,
+    32
+)
 try {
     $expectedIconHash = Get-NormalizedIconHash -Icon $expectedIcon
 }

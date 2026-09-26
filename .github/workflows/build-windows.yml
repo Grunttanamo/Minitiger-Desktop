@@ -114,8 +114,6 @@ jobs:
         call "%VS_PATH%\VC\Auxiliary\Build\${{ matrix.vcvars }}"
         powershell -NoProfile -ExecutionPolicy Bypass -File dev\windows\generate-windows-icon.ps1 -SourcePng resources\images\icon.png -OutputIco bundle\win\minitiger.ico
         if errorlevel 1 exit /b 1
-        copy /Y bundle\win\minitiger.ico bundle\win\jellyfin.ico >nul
-        if errorlevel 1 exit /b 1
         cd build
         set PATH=%PATH%;C:\Program Files (x86)\Inno Setup 6;%CD%
         set "QT_ROOT_DIR=%QT_ROOT_DIR:\=/%"
@@ -128,9 +126,9 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}-installer
-        path: ${{ github.workspace }}/build/JellyfinDesktop-*.exe
+        path: ${{ github.workspace }}/build/Minitiger-Desktop-*-Installer.exe
     - name: Archive portable ZIP
       uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}-portable
-        path: ${{ github.workspace }}/build/JellyfinDesktop-*.zip
+        path: ${{ github.workspace }}/build/Minitiger-Desktop-*-Portable.zip
