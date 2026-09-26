@@ -98,7 +98,22 @@ if(APPLE)
 endif()
 
 if(WIN32)
-  list(APPEND RESOURCE_FILES ${CMAKE_SOURCE_DIR}/bundle/win/iconres.rc)
+  # Configure an RC file with the absolute icon path. This avoids rc.exe
+  # resolving a relative ICO path against the build working directory and
+  # accidentally embedding an unrelated/stale icon.
+  configure_file(
+    ${CMAKE_SOURCE_DIR}/bundle/win/iconres.rc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/minitiger-icon.rc
+    @ONLY
+  )
+  set(MINITIGER_WINDOWS_ICON "${CMAKE_SOURCE_DIR}/bundle/win/minitiger.ico")
+  set_source_files_properties(
+    ${CMAKE_CURRENT_BINARY_DIR}/minitiger-icon.rc
+    PROPERTIES
+      GENERATED TRUE
+      OBJECT_DEPENDS "${MINITIGER_WINDOWS_ICON}"
+  )
+  list(APPEND RESOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/minitiger-icon.rc)
 endif()
 
 # Generate qt.conf so that dev builds find Qt plugins and QML files
