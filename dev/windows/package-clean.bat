@@ -21,6 +21,18 @@ echo.
 
 set "MINITIGER_DISTRIBUTION=1"
 
+REM A distribution build must not reuse a previously linked executable.
+REM In particular, Windows caches/resources such as the executable icon can
+REM otherwise survive from an older build even when the source icon changed.
+if exist "%BUILD_DIR%" (
+    echo Removing previous build directory for a truly clean distribution build...
+    rmdir /s /q "%BUILD_DIR%"
+    if exist "%BUILD_DIR%" (
+        echo ERROR: Could not remove old build directory.
+        exit /b 1
+    )
+)
+
 call "%~dp0build.bat"
 if errorlevel 1 (
     echo ERROR: Distribution build failed.

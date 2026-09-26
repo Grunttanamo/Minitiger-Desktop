@@ -93,6 +93,123 @@ finally {
     $archive.Dispose()
 }
 
+
+# Verify the icon actually embedded into both distributable executables.
+# This catches stale Windows resources before a package is handed out.
+Add-Type -AssemblyName System.Drawing
+
+$expectedIconPath = Join-Path $repoRoot 'bundle\win\minitiger.ico'
+if (-not (Test-Path $expectedIconPath)) {
+    throw "Expected Minitiger Windows icon not found: $expectedIconPath"
+}
+
+function Get-NormalizedIconHash {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Drawing.Icon]$Icon
+    )
+
+    $size = 64
+    $bitmap = [System.Drawing.Bitmap]::new(
+        $size,
+        $size,
+        [System.Drawing.Imaging.PixelFormat]::Format32bppArgb
+    )
+
+    try {
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+            $graphics.Clear([System.Drawing.Color]::Transparent)
+            $graphics.DrawIcon(
+                $Icon,
+                [System.Drawing.Rectangle]::new(0, 0, $size, $size)
+            )
+        }
+        finally {
+            $graphics.Dispose()
+        }
+
+        $stream = [System.IO.MemoryStream]::new()
+        try {
+            $bitmap.Save(
+                $stream,
+                [System.Drawing.Imaging.ImageFormat]::Png
+            )
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = $sha.ComputeHash($stream.ToArray())
+                return ([Convert]::ToHexString($hash)).ToLowerInvariant()
+            }
+            finally {
+                $sha.Dispose()
+            }
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    finally {
+        $bitmap.Dispose()
+    }
+}
+
+$expectedIcon = [System.Drawing.Icon]::new($expectedIconPath)
+try {
+    $expectedIconHash = Get-NormalizedIconHash -Icon $expectedIcon
+}
+finally {
+    $expectedIcon.Dispose()
+}
+
+function Assert-MinitigerExecutableIcon {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $embeddedIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($Path)
+    if ($null -eq $embeddedIcon) {
+        throw "$Label icon validation failed: no embedded executable icon found in $Path"
+    }
+
+    try {
+        $actualHash = Get-NormalizedIconHash -Icon $embeddedIcon
+    }
+    finally {
+        $embeddedIcon.Dispose()
+    }
+
+    if ($actualHash -ne $expectedIconHash) {
+        throw "$Label icon validation failed: packaged executable does not contain the current Minitiger icon."
+    }
+
+    Write-Host "$Label icon validation: OK" -ForegroundColor Green
+}
+
+Assert-MinitigerExecutableIcon -Path $installerDest -Label 'Installer'
+
+$iconVerifyDir = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("minitiger-portable-icon-" + [Guid]::NewGuid().ToString('N'))
+
+try {
+    Expand-Archive -LiteralPath $portableDest -DestinationPath $iconVerifyDir
+    $portableExe = Join-Path $iconVerifyDir 'Minitiger Desktop.exe'
+
+    if (-not (Test-Path $portableExe)) {
+        throw "Portable icon validation failed: Minitiger Desktop.exe was not found after extraction."
+    }
+
+    Assert-MinitigerExecutableIcon -Path $portableExe -Label 'Portable EXE'
+}
+finally {
+    if (Test-Path $iconVerifyDir) {
+        Remove-Item $iconVerifyDir -Recurse -Force
+    }
+}
+
 $hashLines = foreach ($file in @($installerDest, $portableDest)) {
     $hash = Get-FileHash -Algorithm SHA256 $file
     "$($hash.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($file))"
