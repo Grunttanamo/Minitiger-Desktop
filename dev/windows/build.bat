@@ -18,6 +18,15 @@ if not exist "%PROJECT_ROOT%\external\mpvqt\src\mpvabstractitem.cpp" (
     popd
 )
 
+REM === Generate branded Windows executable / installer icon ===
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0generate-windows-icon.ps1" ^
+    -SourcePng "%PROJECT_ROOT%\resources\images\icon.png" ^
+    -OutputIco "%PROJECT_ROOT%\bundle\win\minitiger.ico"
+if errorlevel 1 (
+    echo ERROR: Failed to generate Minitiger Windows icon.
+    exit /b 1
+)
+
 REM === Prepare bundled Minitiger Web ===
 call "%~dp0prepare-minitiger-web.bat"
 if errorlevel 1 (
