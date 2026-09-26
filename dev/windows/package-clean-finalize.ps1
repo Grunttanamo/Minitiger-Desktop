@@ -138,7 +138,7 @@ function Get-NormalizedIconHash {
             $sha = [System.Security.Cryptography.SHA256]::Create()
             try {
                 $hash = $sha.ComputeHash($stream.ToArray())
-                return ([Convert]::ToHexString($hash)).ToLowerInvariant()
+                return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
             }
             finally {
                 $sha.Dispose()
