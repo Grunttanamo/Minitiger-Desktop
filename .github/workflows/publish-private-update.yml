@@ -8,6 +8,12 @@ on:
         required: false
         default: ""
 
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/publish-private-update.yml
+
 permissions:
   contents: read
 
