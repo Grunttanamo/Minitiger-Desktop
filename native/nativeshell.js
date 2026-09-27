@@ -176,7 +176,7 @@ function getDeviceProfile() {
     }
 
     return {
-        'Name': 'Jellyfin Desktop',
+        'Name': 'Minitiger Desktop',
         'MaxStaticBitrate': 1000000000,
         'MusicStreamingTranscodingBitrate': 1280000,
         'TimelineOffsetSeconds': 5,
@@ -325,7 +325,7 @@ window.NativeShell.AppHost = {
     init() {
         return Promise.resolve({
             deviceName: jmpInfo.deviceName,
-            appName: "Jellyfin Desktop",
+            appName: "Minitiger Desktop",
             appVersion: jmpInfo.version
         });
     },
@@ -338,7 +338,7 @@ window.NativeShell.AppHost = {
     getDeviceProfile,
     getSyncProfile: getDeviceProfile,
     appName() {
-        return "Jellyfin Desktop";
+        return "Minitiger Desktop";
     },
     appVersion() {
         return jmpInfo.version;
