@@ -124,8 +124,8 @@
       },
       {
         "value": "checkForUpdates",
-        "display_name": "Check For Updates",
-        "help": "Allows user to disable update check plugin script.",
+        "display_name": "Automatische Minitiger-Updates",
+        "help": "Prüft beim Start über den Minitiger Companion auf private Desktop-Updates und installiert freigegebene Builds automatisch.",
         "default": true
       },
       {
