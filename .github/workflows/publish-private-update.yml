@@ -22,6 +22,7 @@ jobs:
 
     env:
       MINITIGER_PRIVATE_BUILD_NUMBER: ${{ github.run_number }}
+      MINITIGER_VERSION_BASE_BUILD: 4
       DEFAULT_UPDATE_REPOSITORY: Grunttanamo/Minitiger-Desktop-Updates
 
     steps:
@@ -29,6 +30,31 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+
+      - name: Set Minitiger release version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+          $baseBuild = [int]$env:MINITIGER_VERSION_BASE_BUILD
+
+          if ($build -lt $baseBuild) {
+              throw "Private build $build is older than version baseline build $baseBuild."
+          }
+
+          # Human-facing Minitiger versions use decimal carry:
+          # 1.0.0 ... 1.0.9 -> 1.1.0 ... 1.9.9 -> 2.0.0.
+          $index = $build - $baseBuild
+          $major = 1 + [int][Math]::Floor($index / 100)
+          $minor = [int][Math]::Floor(($index % 100) / 10)
+          $patch = $index % 10
+          $version = "$major.$minor.$patch"
+
+          Set-Content -Path VERSION -Value $version -NoNewline
+          "MINITIGER_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+
+          Write-Host "Private build $build -> Minitiger Desktop $version"
 
       - name: Install Node.js 24 for bundled Minitiger Web
         uses: actions/setup-node@v4
