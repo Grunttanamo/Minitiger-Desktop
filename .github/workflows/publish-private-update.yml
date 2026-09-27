@@ -30,6 +30,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Node.js 24 for bundled Minitiger Web
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Prepare Windows build dependencies
         shell: cmd
         run: |
