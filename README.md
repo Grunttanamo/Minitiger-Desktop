@@ -134,12 +134,12 @@ Then open **Plugins → Catalog**, install **Minitiger Virtual Sync**, and resta
 Current Desktop companion release:
 
 ```text
-Minitiger Virtual Sync 1.6.9.0
+Minitiger Virtual Sync 1.6.13.0
 Jellyfin plugin ABI: 12.0.0.0
 ```
 
 Release:
-[Minitiger Virtual Sync 1.6.9.0 · Desktop](https://github.com/Grunttanamo/Minitiger-Desktop-Web/releases/tag/desktop-plugin-v1.6.9.0)
+[Minitiger Virtual Sync 1.6.13.0 · Desktop](https://github.com/Grunttanamo/Minitiger-Desktop-Web/releases/tag/desktop-plugin-v1.6.13.0)
 
 Plugin source and setup notes:
 [Minitiger Desktop Virtual Sync setup](https://github.com/Grunttanamo/Minitiger-Desktop-Web/blob/minitiger-desktop-v12.1/PLUGIN_SETUP.md)
