@@ -16,4 +16,15 @@ endif()
 set(VERSION_STRING_SHORT "${VERSION_BASE}")
 set(CANONICAL_VERSION_STRING "${VERSION_BASE}")
 
+# Private Minitiger auto-update build number. Local/dev builds default to 0.
+# The private publish workflow injects a monotonically increasing Actions run
+# number through MINITIGER_PRIVATE_BUILD_NUMBER.
+set(MINITIGER_UPDATE_BUILD "0")
+if(DEFINED ENV{MINITIGER_PRIVATE_BUILD_NUMBER})
+  string(STRIP "$ENV{MINITIGER_PRIVATE_BUILD_NUMBER}" MINITIGER_UPDATE_BUILD_ENV)
+  if(MINITIGER_UPDATE_BUILD_ENV MATCHES "^[0-9]+$")
+    set(MINITIGER_UPDATE_BUILD "${MINITIGER_UPDATE_BUILD_ENV}")
+  endif()
+endif()
+
 configure_file(src/core/Version.cpp.in src/core/Version.cpp)
