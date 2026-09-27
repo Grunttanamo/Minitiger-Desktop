@@ -1,0 +1,146 @@
+name: Publish private Minitiger update
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "Private update notes"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minitiger-private-update
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    env:
+      MINITIGER_PRIVATE_BUILD_NUMBER: ${{ github.run_number }}
+      DEFAULT_UPDATE_REPOSITORY: Grunttanamo/Minitiger-Desktop-Updates
+
+    steps:
+      - name: Checkout Minitiger Desktop
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Prepare Windows build dependencies
+        shell: cmd
+        run: |
+          call dev\windows\setup.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Prepare libVLC
+        shell: cmd
+        run: |
+          call dev\windows\setup-vlc.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Build clean private distribution
+        shell: cmd
+        run: |
+          call dev\windows\package-clean.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Create private update manifest
+        shell: pwsh
+        env:
+          UPDATE_NOTES: ${{ inputs.notes }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $version = (Get-Content VERSION -Raw).Trim()
+          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+
+          $installer = Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1
+          $portable = Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1
+
+          if (-not $installer -or -not $portable) {
+              throw 'Private update packages were not produced.'
+          }
+
+          $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          $portableHash = (Get-FileHash -Algorithm SHA256 $portable.FullName).Hash.ToLowerInvariant()
+
+          $manifest = [ordered]@{
+              version = $version
+              build = $build
+              commit = $env:GITHUB_SHA
+              publishedAt = (Get-Date).ToUniversalTime().ToString('o')
+              notes = [string]$env:UPDATE_NOTES
+              installer = [ordered]@{
+                  fileName = $installer.Name
+                  sha256 = $installerHash
+                  size = [int64]$installer.Length
+              }
+              portable = [ordered]@{
+                  fileName = $portable.Name
+                  sha256 = $portableHash
+                  size = [int64]$portable.Length
+              }
+          }
+
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 dist\minitiger-update.json
+
+          Write-Host "Private update manifest:"
+          Get-Content dist\minitiger-update.json
+
+      - name: Publish to private update repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
+          CONFIGURED_UPDATE_REPOSITORY: ${{ vars.MINITIGER_UPDATE_REPOSITORY }}
+          UPDATE_NOTES: ${{ inputs.notes }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (-not $env:GH_TOKEN) {
+              throw 'Repository secret MINITIGER_UPDATE_PUBLISH_TOKEN is not configured.'
+          }
+
+          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) {
+              $env:CONFIGURED_UPDATE_REPOSITORY
+          } else {
+              $env:DEFAULT_UPDATE_REPOSITORY
+          }
+
+          $version = (Get-Content VERSION -Raw).Trim()
+          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+          $tag = "desktop-v$version-b$build"
+          $title = "Minitiger Desktop $version · Build $build"
+
+          $installer = (Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1).FullName
+          $portable = (Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1).FullName
+          $manifest = (Resolve-Path dist\minitiger-update.json).Path
+
+          $notes = if ($env:UPDATE_NOTES) {
+              $env:UPDATE_NOTES
+          } else {
+              "Private Minitiger Desktop update build $build."
+          }
+
+          Write-Host "Publishing private update to $targetRepo"
+          Write-Host "Tag: $tag"
+
+          & gh release create $tag --repo $targetRepo --title $title --notes $notes --latest $installer $portable $manifest
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Private GitHub release creation failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Private update summary
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          "### Minitiger private update published" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
+          "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
+          "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
+          "- Installer/Portable stored in source repository: **No**" >> $env:GITHUB_STEP_SUMMARY
