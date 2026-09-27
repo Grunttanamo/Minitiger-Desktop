@@ -66,6 +66,16 @@ public:
 
   Q_INVOKABLE void checkForUpdates();
 
+  // Private Minitiger Windows updater. The URL is a short-lived relay URL
+  // issued by the authenticated companion plugin; GitHub credentials never
+  // enter the desktop client.
+  Q_INVOKABLE bool applyMinitigerUpdate(
+    const QString& url,
+    const QString& sha256,
+    const QString& packageType,
+    int targetBuild,
+    const QString& targetVersion);
+
   // called by the web-client when everything is properly inited
   Q_INVOKABLE void hello(const QString& version);
 
