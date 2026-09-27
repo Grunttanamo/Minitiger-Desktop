@@ -126,7 +126,7 @@ set "MINITIGER_UPDATE_CHECK=ON"
 if /I "%MINITIGER_DISTRIBUTION%"=="1" (
     set "MINITIGER_BUILD_TYPE=Release"
     set "MINITIGER_UPDATE_CHECK=OFF"
-    echo Distribution build mode: Release, update checker disabled.
+    echo Distribution build mode: Release, legacy upstream checker disabled; private Minitiger updater remains available.
 )
 
 echo Configuring...
