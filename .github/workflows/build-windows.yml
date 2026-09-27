@@ -124,13 +124,9 @@ jobs:
         ninja
         ninja windows_all
       shell: cmd
-    - name: Archive installer
-      uses: actions/upload-artifact@v7
-      with:
-        name: ${{ matrix.artifact }}-installer
-        path: ${{ github.workspace }}/build/Minitiger-Desktop-*-Installer.exe
-    - name: Archive portable ZIP
-      uses: actions/upload-artifact@v7
-      with:
-        name: ${{ matrix.artifact }}-portable
-        path: ${{ github.workspace }}/build/Minitiger-Desktop-*-Portable.zip
+    - name: Confirm private-only distribution policy
+      shell: powershell
+      run: |
+        Write-Host "Windows build/package validation completed."
+        Write-Host "Installer and Portable are intentionally NOT uploaded from this public workflow."
+        Write-Host "Distributable binaries are published only by the private update workflow."
