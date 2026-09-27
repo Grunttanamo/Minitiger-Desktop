@@ -7,6 +7,11 @@ $repoRoot = (Resolve-Path (Join-Path $scriptDir '..\..')).Path
 $buildDir = Join-Path $repoRoot 'build'
 $distDir = Join-Path $repoRoot 'dist'
 $version = (Get-Content (Join-Path $repoRoot 'VERSION') -Raw).Trim()
+$privateUpdateBuild = if ($env:MINITIGER_PRIVATE_BUILD_NUMBER) {
+    $env:MINITIGER_PRIVATE_BUILD_NUMBER
+} else {
+    '0'
+}
 
 $installerName = "Minitiger-Desktop-$version-windows-x64-Installer.exe"
 $portableName = "Minitiger-Desktop-$version-windows-x64-Portable.zip"
@@ -251,7 +256,8 @@ try {
     "Version: $version"
     'Architecture: windows-x64'
     "Commit: $commit"
-    'Update checker: disabled'
+    "Private update build: $privateUpdateBuild"
+    'Update checker: private Minitiger relay (when companion/server is configured)'
     'Personal settings included: no'
     'GitHub release/upload performed: no'
 ) | Set-Content -Encoding utf8 (Join-Path $distDir 'BUILD-INFO.txt')
