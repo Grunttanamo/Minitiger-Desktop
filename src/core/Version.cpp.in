@@ -18,6 +18,11 @@ QString Version::GetBuildDate()
   return QString("@CURRENT_DATE@");
 }
 
+int Version::GetUpdateBuildNumber()
+{
+  return @MINITIGER_UPDATE_BUILD@;
+}
+
 QString Version::GetWebVersion()
 {
   return QString("@WEB_CLIENT_VERSTR@");
