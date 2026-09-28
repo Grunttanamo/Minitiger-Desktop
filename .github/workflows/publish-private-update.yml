@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       notes:
-        description: "Private update notes"
+        description: "Stable update notes"
         required: false
         default: ""
 
@@ -29,10 +29,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set Minitiger release version
-        shell: pwsh
-        run: |
-          $ErrorAction      - name: Resolve next stable version and build
+      - name: Resolve next STABLE version and build
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -72,7 +69,7 @@ jobs:
               return "$major.$minor.$patch"
           }
 
-          $allJson = & gh api "repos/$targetRepo/releases?per_page=100"
+          $allJson = & gh release list --repo $targetRepo --limit 1000 --json tagName
           if ($LASTEXITCODE -ne 0) {
               throw 'Could not read private update releases.'
           }
@@ -81,7 +78,8 @@ jobs:
           $maxBuild = 0
 
           foreach ($release in $allReleases) {
-              if ([string]$release.tag_name -match '-b(\d+)$') {
+              $releaseTag = [string]$release.tagName
+              if ($releaseTag -match '-b(\d+)$') {
                   $candidateBuild = [int]$Matches[1]
                   if ($candidateBuild -gt $maxBuild) {
                       $maxBuild = $candidateBuild
@@ -110,10 +108,12 @@ jobs:
           "MINITIGER_PRIVATE_BUILD_NUMBER=$build" >> $env:GITHUB_ENV
           "MINITIGER_RELEASE_CHANNEL=stable" >> $env:GITHUB_ENV
 
-          Write-Host "Latest stable: $currentVersion"
-          Write-Host "Next stable: $version · Build $build"
+          Write-Host "Latest STABLE: $currentVersion"
+          Write-Host "Next STABLE: $version · Build $build"
 
-  with:
+      - name: Install Node.js 24 for bundled Minitiger Web
+        uses: actions/setup-node@v4
+        with:
           node-version: '24'
 
       - name: Prepare Windows build dependencies
@@ -178,7 +178,7 @@ jobs:
           Write-Host "Private update manifest:"
           Get-Content dist\minitiger-update.json
 
-      - name: Publish to private update repository
+      - name: Publish STABLE update
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -209,10 +209,10 @@ jobs:
           $notes = if ($env:UPDATE_NOTES) {
               $env:UPDATE_NOTES
           } else {
-              "Private Minitiger Desktop update build $build."
+              "Private Minitiger Desktop STABLE update build $build."
           }
 
-          Write-Host "Publishing private update to $targetRepo"
+          Write-Host "Publishing STABLE update to $targetRepo"
           Write-Host "Tag: $tag"
 
           & gh release create $tag --repo $targetRepo --title $title --notes $notes --latest $installer $portable $manifest
@@ -229,5 +229,7 @@ jobs:
           "" >> $env:GITHUB_STEP_SUMMARY
           "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
           "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
+          "- Normal auto-update channel: **Updated**" >> $env:GITHUB_STEP_SUMMARY
+          "- Release type: **Private stable/latest release**" >> $env:GITHUB_STEP_SUMMARY
           "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
           "- Installer/Portable stored in source repository: **No**" >> $env:GITHUB_STEP_SUMMARY

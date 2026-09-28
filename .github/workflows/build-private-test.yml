@@ -29,10 +29,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set Minitiger release version
-        shell: pwsh
-        run: |
-          $ErrorAction      - name: Resolve next test candidate and build
+      - name: Resolve next TEST candidate and build
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -72,7 +69,7 @@ jobs:
               return "$major.$minor.$patch"
           }
 
-          $allJson = & gh api "repos/$targetRepo/releases?per_page=100"
+          $allJson = & gh release list --repo $targetRepo --limit 1000 --json tagName
           if ($LASTEXITCODE -ne 0) {
               throw 'Could not read private update releases.'
           }
@@ -81,7 +78,8 @@ jobs:
           $maxBuild = 0
 
           foreach ($release in $allReleases) {
-              if ([string]$release.tag_name -match '-b(\d+)$') {
+              $releaseTag = [string]$release.tagName
+              if ($releaseTag -match '-b(\d+)$') {
                   $candidateBuild = [int]$Matches[1]
                   if ($candidateBuild -gt $maxBuild) {
                       $maxBuild = $candidateBuild
@@ -110,10 +108,12 @@ jobs:
           "MINITIGER_PRIVATE_BUILD_NUMBER=$build" >> $env:GITHUB_ENV
           "MINITIGER_RELEASE_CHANNEL=test" >> $env:GITHUB_ENV
 
-          Write-Host "Latest stable: $currentVersion"
+          Write-Host "Latest STABLE: $currentVersion"
           Write-Host "Next TEST candidate: $version · Build $build"
 
-  with:
+      - name: Install Node.js 24 for bundled Minitiger Web
+        uses: actions/setup-node@v4
+        with:
           node-version: '24'
 
       - name: Prepare Windows build dependencies
@@ -209,10 +209,10 @@ jobs:
           $notes = if ($env:UPDATE_NOTES) {
               $env:UPDATE_NOTES
           } else {
-              "Private Minitiger Desktop TEST candidate build $build. Normal clients will ignore this pre-release."
+              "Private Minitiger Desktop TEST candidate build $build. Normal clients ignore this pre-release."
           }
 
-          Write-Host "Publishing private update to $targetRepo"
+          Write-Host "Publishing TEST pre-release to $targetRepo"
           Write-Host "Tag: $tag"
 
           & gh release create $tag --repo $targetRepo --title $title --notes $notes --prerelease $installer $portable $manifest
@@ -229,6 +229,8 @@ jobs:
           "" >> $env:GITHUB_STEP_SUMMARY
           "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
           "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
-          "- Candidate version: **$version TEST**" >> $env:GITHUB_STEP_SUMMARY
+          "- Candidate: **$version TEST**" >> $env:GITHUB_STEP_SUMMARY
           "- Normal auto-update channel affected: **No**" >> $env:GITHUB_STEP_SUMMARY
           "- Release type: **Private GitHub pre-release**" >> $env:GITHUB_STEP_SUMMARY
+          "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
+          "- Installer/Portable stored in source repository: **No**" >> $env:GITHUB_STEP_SUMMARY
