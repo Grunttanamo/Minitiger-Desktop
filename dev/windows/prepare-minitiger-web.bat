@@ -69,11 +69,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-git checkout -B "%MINITIGER_WEB_BRANCH%" "origin/%MINITIGER_WEB_BRANCH%"
-if errorlevel 1 (
-    popd
-    echo ERROR: Failed to checkout Minitiger Web branch.
-    exit /b 1
+if defined MINITIGER_WEB_COMMIT_OVERRIDE (
+    echo [Minitiger Web] Using tested commit %MINITIGER_WEB_COMMIT_OVERRIDE%...
+    git checkout --detach "%MINITIGER_WEB_COMMIT_OVERRIDE%"
+    if errorlevel 1 (
+        popd
+        echo ERROR: Failed to checkout tested Minitiger Web commit %MINITIGER_WEB_COMMIT_OVERRIDE%.
+        exit /b 1
+    )
+) else (
+    git checkout -B "%MINITIGER_WEB_BRANCH%" "origin/%MINITIGER_WEB_BRANCH%"
+    if errorlevel 1 (
+        popd
+        echo ERROR: Failed to checkout Minitiger Web branch.
+        exit /b 1
+    )
 )
 
 for /f "delims=" %%C in ('git rev-parse HEAD') do set "MINITIGER_WEB_COMMIT=%%C"

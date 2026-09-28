@@ -24,93 +24,90 @@ jobs:
       DEFAULT_UPDATE_REPOSITORY: Grunttanamo/Minitiger-Desktop-Updates
 
     steps:
-      - name: Checkout Minitiger Desktop
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Resolve next STABLE version and build
+      - name: Resolve latest tested candidate
+        id: release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
           CONFIGURED_UPDATE_REPOSITORY: ${{ vars.MINITIGER_UPDATE_REPOSITORY }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) { $env:CONFIGURED_UPDATE_REPOSITORY } else { $env:DEFAULT_UPDATE_REPOSITORY }
 
-          if (-not $env:GH_TOKEN) {
-              throw 'Repository secret MINITIGER_UPDATE_PUBLISH_TOKEN is not configured.'
-          }
-
-          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) {
-              $env:CONFIGURED_UPDATE_REPOSITORY
-          } else {
-              $env:DEFAULT_UPDATE_REPOSITORY
-          }
-
-          function Get-NextMinitigerVersion([string]$version) {
-              if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)$') {
-                  throw "Unsupported stable version format: $version"
-              }
-
-              $major = [int]$Matches[1]
-              $minor = [int]$Matches[2]
-              $patch = [int]$Matches[3] + 1
-
-              if ($patch -ge 10) {
-                  $patch = 0
-                  $minor += 1
-              }
-
-              if ($minor -ge 10) {
-                  $minor = 0
-                  $major += 1
-              }
-
+          function Next-Version([string]$version) {
+              if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)$') { throw "Unsupported stable version: $version" }
+              $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3] + 1
+              if ($patch -ge 10) { $patch = 0; $minor += 1 }
+              if ($minor -ge 10) { $minor = 0; $major += 1 }
               return "$major.$minor.$patch"
           }
 
-          $allJson = & gh release list --repo $targetRepo --limit 1000 --json tagName
-          if ($LASTEXITCODE -ne 0) {
-              throw 'Could not read private update releases.'
-          }
+          $all = @((& gh release list --repo $targetRepo --limit 1000 --json tagName,isPrerelease,publishedAt | ConvertFrom-Json))
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read private releases.' }
 
-          $allReleases = @($allJson | ConvertFrom-Json)
           $maxBuild = 0
-
-          foreach ($release in $allReleases) {
-              $releaseTag = [string]$release.tagName
-              if ($releaseTag -match '-b(\d+)$') {
-                  $candidateBuild = [int]$Matches[1]
-                  if ($candidateBuild -gt $maxBuild) {
-                      $maxBuild = $candidateBuild
-                  }
-              }
+          foreach ($release in $all) {
+              if ([string]$release.tagName -match '-b(\d+)$') { $maxBuild = [Math]::Max($maxBuild, [int]$Matches[1]) }
           }
 
-          $latestJson = & gh api "repos/$targetRepo/releases/latest"
-          if ($LASTEXITCODE -ne 0) {
-              throw 'Could not resolve latest stable private update.'
-          }
+          $test = $all | Where-Object {
+              $_.isPrerelease -eq $true -and [string]$_.tagName -match '^desktop-test-v\d+\.\d+\.\d+-b\d+$'
+          } | Sort-Object { [DateTime]$_.publishedAt } -Descending | Select-Object -First 1
 
-          $latest = $latestJson | ConvertFrom-Json
-          $latestTag = [string]$latest.tag_name
+          if (-not $test) { throw 'No Minitiger TEST candidate exists to promote.' }
 
-          if ($latestTag -notmatch '^desktop-v(\d+\.\d+\.\d+)-b\d+$') {
-              throw "Latest stable release tag has an unsupported format: $latestTag"
-          }
+          $latest = (& gh api "repos/$targetRepo/releases/latest" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve latest stable release.' }
+          if ([string]$latest.tag_name -notmatch '^desktop-v(\d+\.\d+\.\d+)-b\d+$') { throw "Unsupported latest stable tag: $($latest.tag_name)" }
+          $expectedVersion = Next-Version $Matches[1]
 
-          $currentVersion = $Matches[1]
-          $version = Get-NextMinitigerVersion $currentVersion
+          $tempDir = Join-Path $env:RUNNER_TEMP 'minitiger-promote-test'
+          Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $tempDir | Out-Null
+          & gh release download $test.tagName --repo $targetRepo --pattern 'minitiger-update.json' --dir $tempDir --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not download manifest from $($test.tagName)." }
+
+          $manifest = Get-Content (Join-Path $tempDir 'minitiger-update.json') -Raw | ConvertFrom-Json
+          $version = [string]$manifest.version
+          $sourceCommit = [string]$manifest.commit
+          $webCommit = [string]$manifest.webCommit
+
+          if ([string]$manifest.channel -ne 'test') { throw 'Selected release is not a TEST manifest.' }
+          if ($version -ne $expectedVersion) { throw "Latest TEST is $version but next stable must be $expectedVersion." }
+          if ($sourceCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop source commit.' }
+          if ($webCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop-Web source commit.' }
+
           $build = $maxBuild + 1
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "build=$build" >> $env:GITHUB_OUTPUT
+          "source_commit=$sourceCommit" >> $env:GITHUB_OUTPUT
+          "web_commit=$webCommit" >> $env:GITHUB_OUTPUT
+          "test_tag=$($test.tagName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Promoting $($test.tagName) -> $version · Build $build"
 
-          Set-Content -Path VERSION -Value $version -NoNewline
-          "MINITIGER_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
-          "MINITIGER_PRIVATE_BUILD_NUMBER=$build" >> $env:GITHUB_ENV
+      - name: Checkout tested Minitiger Desktop source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.source_commit }}
+          submodules: recursive
+
+      - name: Set promoted STABLE build metadata
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_BUILD: ${{ steps.release.outputs.build }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.source_commit }}
+          WEB_COMMIT: ${{ steps.release.outputs.web_commit }}
+          TEST_TAG: ${{ steps.release.outputs.test_tag }}
+        run: |
+          Set-Content -Path VERSION -Value $env:RELEASE_VERSION -NoNewline
+          "MINITIGER_RELEASE_VERSION=$env:RELEASE_VERSION" >> $env:GITHUB_ENV
+          "MINITIGER_PRIVATE_BUILD_NUMBER=$env:RELEASE_BUILD" >> $env:GITHUB_ENV
           "MINITIGER_RELEASE_CHANNEL=stable" >> $env:GITHUB_ENV
-
-          Write-Host "Latest STABLE: $currentVersion"
-          Write-Host "Next STABLE: $version · Build $build"
-
+          "MINITIGER_SOURCE_COMMIT=$env:SOURCE_COMMIT" >> $env:GITHUB_ENV
+          "MINITIGER_WEB_COMMIT_OVERRIDE=$env:WEB_COMMIT" >> $env:GITHUB_ENV
+          "MINITIGER_WEB_RESOLVED_COMMIT=$env:WEB_COMMIT" >> $env:GITHUB_ENV
+          "MINITIGER_PROMOTED_FROM=$env:TEST_TAG" >> $env:GITHUB_ENV
       - name: Install Node.js 24 for bundled Minitiger Web
         uses: actions/setup-node@v4
         with:
@@ -143,6 +140,20 @@ jobs:
 
           $version = (Get-Content VERSION -Raw).Trim()
           $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+          $webCommitFile = Join-Path $env:GITHUB_WORKSPACE 'dev\windows\deps\minitiger-web-src\.minitiger-desktop-built-commit'
+
+          if (-not (Test-Path $webCommitFile)) {
+              throw 'Bundled Minitiger Web commit marker was not produced.'
+          }
+
+          $webCommit = (Get-Content $webCommitFile -Raw).Trim()
+          if ($webCommit -notmatch '^[0-9a-f]{40}$') {
+              throw "Invalid bundled Minitiger Web commit: $webCommit"
+          }
+
+          if ($env:MINITIGER_WEB_COMMIT_OVERRIDE -and $webCommit -ne $env:MINITIGER_WEB_COMMIT_OVERRIDE) {
+              throw "Bundled Web commit $webCommit does not match tested commit $env:MINITIGER_WEB_COMMIT_OVERRIDE."
+          }
 
           $installer = Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1
           $portable = Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1
@@ -157,10 +168,12 @@ jobs:
           $manifest = [ordered]@{
               version = $version
               build = $build
-              commit = $env:GITHUB_SHA
+              channel = 'stable'
+              commit = [string]$env:MINITIGER_SOURCE_COMMIT
+              webCommit = $webCommit
+              promotedFrom = [string]$env:MINITIGER_PROMOTED_FROM
               publishedAt = (Get-Date).ToUniversalTime().ToString('o')
               notes = [string]$env:UPDATE_NOTES
-              channel = 'stable'
               installer = [ordered]@{
                   fileName = $installer.Name
                   sha256 = $installerHash
@@ -178,7 +191,7 @@ jobs:
           Write-Host "Private update manifest:"
           Get-Content dist\minitiger-update.json
 
-      - name: Publish STABLE update
+      - name: Publish promoted STABLE update
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -209,10 +222,10 @@ jobs:
           $notes = if ($env:UPDATE_NOTES) {
               $env:UPDATE_NOTES
           } else {
-              "Private Minitiger Desktop STABLE update build $build."
+              "Promoted from tested candidate $env:MINITIGER_PROMOTED_FROM."
           }
 
-          Write-Host "Publishing STABLE update to $targetRepo"
+          Write-Host "Publishing promoted STABLE update to $targetRepo"
           Write-Host "Tag: $tag"
 
           & gh release create $tag --repo $targetRepo --title $title --notes $notes --latest $installer $portable $manifest
@@ -225,11 +238,12 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
-          "### Minitiger STABLE update published" >> $env:GITHUB_STEP_SUMMARY
+          "### Minitiger tested candidate promoted to STABLE" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
           "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
           "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
+          "- Desktop source: **$env:MINITIGER_SOURCE_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
+          "- Desktop-Web source: **$env:MINITIGER_WEB_RESOLVED_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
+          "- Promoted from: **$env:MINITIGER_PROMOTED_FROM**" >> $env:GITHUB_STEP_SUMMARY
           "- Normal auto-update channel: **Updated**" >> $env:GITHUB_STEP_SUMMARY
-          "- Release type: **Private stable/latest release**" >> $env:GITHUB_STEP_SUMMARY
           "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
-          "- Installer/Portable stored in source repository: **No**" >> $env:GITHUB_STEP_SUMMARY
