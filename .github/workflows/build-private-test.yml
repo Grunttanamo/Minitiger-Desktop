@@ -1,10 +1,10 @@
-name: Publish Minitiger STABLE update
+name: Build Minitiger TEST
 
 on:
   workflow_dispatch:
     inputs:
       notes:
-        description: "Private update notes"
+        description: "TEST notes"
         required: false
         default: ""
 
@@ -32,7 +32,7 @@ jobs:
       - name: Set Minitiger release version
         shell: pwsh
         run: |
-          $ErrorAction      - name: Resolve next stable version and build
+          $ErrorAction      - name: Resolve next test candidate and build
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -108,10 +108,10 @@ jobs:
           Set-Content -Path VERSION -Value $version -NoNewline
           "MINITIGER_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
           "MINITIGER_PRIVATE_BUILD_NUMBER=$build" >> $env:GITHUB_ENV
-          "MINITIGER_RELEASE_CHANNEL=stable" >> $env:GITHUB_ENV
+          "MINITIGER_RELEASE_CHANNEL=test" >> $env:GITHUB_ENV
 
           Write-Host "Latest stable: $currentVersion"
-          Write-Host "Next stable: $version · Build $build"
+          Write-Host "Next TEST candidate: $version · Build $build"
 
   with:
           node-version: '24'
@@ -160,7 +160,7 @@ jobs:
               commit = $env:GITHUB_SHA
               publishedAt = (Get-Date).ToUniversalTime().ToString('o')
               notes = [string]$env:UPDATE_NOTES
-              channel = 'stable'
+              channel = 'test'
               installer = [ordered]@{
                   fileName = $installer.Name
                   sha256 = $installerHash
@@ -178,7 +178,7 @@ jobs:
           Write-Host "Private update manifest:"
           Get-Content dist\minitiger-update.json
 
-      - name: Publish to private update repository
+      - name: Publish TEST pre-release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
@@ -199,8 +199,8 @@ jobs:
 
           $version = (Get-Content VERSION -Raw).Trim()
           $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
-          $tag = "desktop-v$version-b$build"
-          $title = "Minitiger Desktop $version · Build $build"
+          $tag = "desktop-test-v$version-b$build"
+          $title = "Minitiger Desktop $version TEST · Build $build"
 
           $installer = (Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1).FullName
           $portable = (Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1).FullName
@@ -209,13 +209,13 @@ jobs:
           $notes = if ($env:UPDATE_NOTES) {
               $env:UPDATE_NOTES
           } else {
-              "Private Minitiger Desktop update build $build."
+              "Private Minitiger Desktop TEST candidate build $build. Normal clients will ignore this pre-release."
           }
 
           Write-Host "Publishing private update to $targetRepo"
           Write-Host "Tag: $tag"
 
-          & gh release create $tag --repo $targetRepo --title $title --notes $notes --latest $installer $portable $manifest
+          & gh release create $tag --repo $targetRepo --title $title --notes $notes --prerelease $installer $portable $manifest
 
           if ($LASTEXITCODE -ne 0) {
               throw "Private GitHub release creation failed with exit code $LASTEXITCODE."
@@ -225,9 +225,10 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
-          "### Minitiger STABLE update published" >> $env:GITHUB_STEP_SUMMARY
+          "### Minitiger TEST candidate published" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
           "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
           "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
-          "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
-          "- Installer/Portable stored in source repository: **No**" >> $env:GITHUB_STEP_SUMMARY
+          "- Candidate version: **$version TEST**" >> $env:GITHUB_STEP_SUMMARY
+          "- Normal auto-update channel affected: **No**" >> $env:GITHUB_STEP_SUMMARY
+          "- Release type: **Private GitHub pre-release**" >> $env:GITHUB_STEP_SUMMARY
