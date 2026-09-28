@@ -36,22 +36,30 @@ jobs:
 
           function Next-Version([string]$version) {
               if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)$') { throw "Unsupported stable version: $version" }
-              $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3] + 1
+              $major = [int]$Matches[1]
+              $minor = [int]$Matches[2]
+              $patch = [int]$Matches[3] + 1
               if ($patch -ge 10) { $patch = 0; $minor += 1 }
               if ($minor -ge 10) { $minor = 0; $major += 1 }
               return "$major.$minor.$patch"
           }
 
-          $all = @((& gh release list --repo $targetRepo --limit 1000 --json tagName | ConvertFrom-Json))
+          $allJson = & gh release list --repo $targetRepo --limit 1000 --json tagName
           if ($LASTEXITCODE -ne 0) { throw 'Could not read private releases.' }
+          $all = @($allJson | ConvertFrom-Json)
           $maxBuild = 0
           foreach ($release in $all) {
-              if ([string]$release.tagName -match '-b(\d+)$') { $maxBuild = [Math]::Max($maxBuild, [int]$Matches[1]) }
+              if ([string]$release.tagName -match '-b(\d+)$') {
+                  $maxBuild = [Math]::Max($maxBuild, [int]$Matches[1])
+              }
           }
 
-          $latest = (& gh api "repos/$targetRepo/releases/latest" | ConvertFrom-Json)
+          $latestJson = & gh api "repos/$targetRepo/releases/latest"
           if ($LASTEXITCODE -ne 0) { throw 'Could not resolve latest stable release.' }
-          if ([string]$latest.tag_name -notmatch '^desktop-v(\d+\.\d+\.\d+)-b\d+$') { throw "Unsupported latest stable tag: $($latest.tag_name)" }
+          $latest = $latestJson | ConvertFrom-Json
+          if ([string]$latest.tag_name -notmatch '^desktop-v(\d+\.\d+\.\d+)-b\d+$') {
+              throw "Unsupported latest stable tag: $($latest.tag_name)"
+          }
 
           $version = Next-Version $Matches[1]
           $build = $maxBuild + 1
@@ -77,6 +85,7 @@ jobs:
           "MINITIGER_RELEASE_CHANNEL=test" >> $env:GITHUB_ENV
           "MINITIGER_SOURCE_COMMIT=$sourceCommit" >> $env:GITHUB_ENV
           Write-Host "Desktop source: $sourceCommit"
+
       - name: Install Node.js 24 for bundled Minitiger Web
         uses: actions/setup-node@v4
         with:
@@ -104,155 +113,29 @@ jobs:
         shell: pwsh
         run: |
           $webCommitFile = Join-Path $env:GITHUB_WORKSPACE 'dev\windows\deps\minitiger-web-src\.minitiger-desktop-built-commit'
-          if (-not (Test-Path $webCommitFile)) { throw 'Bundled Minitiger Web commit marker was not produced.' }
-          $webCommit = (Get-Content $webCommitFile -Raw).Trim()
-          if ($webCommit -notmatch '^[0-9a-f]{40}
-        shell: pwsh
-        env:
-          UPDATE_NOTES: ${{ inputs.notes }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $version = (Get-Content VERSION -Raw).Trim()
-          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
-          $webCommitFile = Join-Path $env:GITHUB_WORKSPACE 'dev\windows\deps\minitiger-web-src\.minitiger-desktop-built-commit'
-
           if (-not (Test-Path $webCommitFile)) {
               throw 'Bundled Minitiger Web commit marker was not produced.'
           }
-
           $webCommit = (Get-Content $webCommitFile -Raw).Trim()
           if ($webCommit -notmatch '^[0-9a-f]{40}$') {
               throw "Invalid bundled Minitiger Web commit: $webCommit"
           }
-
-          if ($env:MINITIGER_WEB_COMMIT_OVERRIDE -and $webCommit -ne $env:MINITIGER_WEB_COMMIT_OVERRIDE) {
-              throw "Bundled Web commit $webCommit does not match tested commit $env:MINITIGER_WEB_COMMIT_OVERRIDE."
-          }
-
-          $installer = Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1
-          $portable = Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1
-
-          if (-not $installer -or -not $portable) {
-              throw 'Private update packages were not produced.'
-          }
-
-          $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
-          $portableHash = (Get-FileHash -Algorithm SHA256 $portable.FullName).Hash.ToLowerInvariant()
-
-          $manifest = [ordered]@{
-              version = $version
-              build = $build
-              channel = 'test'
-              commit = [string]$env:MINITIGER_SOURCE_COMMIT
-              webCommit = $webCommit
-              publishedAt = (Get-Date).ToUniversalTime().ToString('o')
-              notes = [string]$env:UPDATE_NOTES
-              installer = [ordered]@{
-                  fileName = $installer.Name
-                  sha256 = $installerHash
-                  size = [int64]$installer.Length
-              }
-              portable = [ordered]@{
-                  fileName = $portable.Name
-                  sha256 = $portableHash
-                  size = [int64]$portable.Length
-              }
-          }
-
-          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 dist\minitiger-update.json
-
-          Write-Host "Private update manifest:"
-          Get-Content dist\minitiger-update.json
-
-      - name: Publish TEST pre-release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
-          CONFIGURED_UPDATE_REPOSITORY: ${{ vars.MINITIGER_UPDATE_REPOSITORY }}
-          UPDATE_NOTES: ${{ inputs.notes }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          if (-not $env:GH_TOKEN) {
-              throw 'Repository secret MINITIGER_UPDATE_PUBLISH_TOKEN is not configured.'
-          }
-
-          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) {
-              $env:CONFIGURED_UPDATE_REPOSITORY
-          } else {
-              $env:DEFAULT_UPDATE_REPOSITORY
-          }
-
-          $version = (Get-Content VERSION -Raw).Trim()
-          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
-          $tag = "desktop-test-v$version-b$build"
-          $title = "Minitiger Desktop $version TEST · Build $build"
-
-          $installer = (Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1).FullName
-          $portable = (Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1).FullName
-          $manifest = (Resolve-Path dist\minitiger-update.json).Path
-
-          $notes = if ($env:UPDATE_NOTES) {
-              $env:UPDATE_NOTES
-          } else {
-              "Private Minitiger Desktop TEST candidate build $build. Normal clients ignore this pre-release."
-          }
-
-          Write-Host "Publishing TEST pre-release to $targetRepo"
-          Write-Host "Tag: $tag"
-
-          & gh release create $tag --repo $targetRepo --title $title --notes $notes --prerelease $installer $portable $manifest
-
-          if ($LASTEXITCODE -ne 0) {
-              throw "Private GitHub release creation failed with exit code $LASTEXITCODE."
-          }
-
-      - name: Private update summary
-        shell: pwsh
-        run: |
-          $version = (Get-Content VERSION -Raw).Trim()
-          "### Minitiger TEST candidate published" >> $env:GITHUB_STEP_SUMMARY
-          "" >> $env:GITHUB_STEP_SUMMARY
-          "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
-          "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
-          "- Desktop source: **$env:MINITIGER_SOURCE_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
-          "- Desktop-Web source: **$env:MINITIGER_WEB_RESOLVED_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
-          "- Channel: **TEST / pre-release**" >> $env:GITHUB_STEP_SUMMARY
-          "- Normal auto-update channel affected: **No**" >> $env:GITHUB_STEP_SUMMARY
-          "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
-) { throw "Invalid bundled Minitiger Web commit: $webCommit" }
           "MINITIGER_WEB_RESOLVED_COMMIT=$webCommit" >> $env:GITHUB_ENV
-      - name: Create private update manifest
+          Write-Host "Desktop-Web source: $webCommit"
+
+      - name: Create private TEST manifest
         shell: pwsh
         env:
           UPDATE_NOTES: ${{ inputs.notes }}
         run: |
           $ErrorActionPreference = 'Stop'
-
           $version = (Get-Content VERSION -Raw).Trim()
           $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
-          $webCommitFile = Join-Path $env:GITHUB_WORKSPACE 'dev\windows\deps\minitiger-web-src\.minitiger-desktop-built-commit'
-
-          if (-not (Test-Path $webCommitFile)) {
-              throw 'Bundled Minitiger Web commit marker was not produced.'
-          }
-
-          $webCommit = (Get-Content $webCommitFile -Raw).Trim()
-          if ($webCommit -notmatch '^[0-9a-f]{40}$') {
-              throw "Invalid bundled Minitiger Web commit: $webCommit"
-          }
-
-          if ($env:MINITIGER_WEB_COMMIT_OVERRIDE -and $webCommit -ne $env:MINITIGER_WEB_COMMIT_OVERRIDE) {
-              throw "Bundled Web commit $webCommit does not match tested commit $env:MINITIGER_WEB_COMMIT_OVERRIDE."
-          }
+          $webCommit = [string]$env:MINITIGER_WEB_RESOLVED_COMMIT
 
           $installer = Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1
           $portable = Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1
-
-          if (-not $installer -or -not $portable) {
-              throw 'Private update packages were not produced.'
-          }
+          if (-not $installer -or -not $portable) { throw 'Private update packages were not produced.' }
 
           $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           $portableHash = (Get-FileHash -Algorithm SHA256 $portable.FullName).Hash.ToLowerInvariant()
@@ -278,8 +161,6 @@ jobs:
           }
 
           $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 dist\minitiger-update.json
-
-          Write-Host "Private update manifest:"
           Get-Content dist\minitiger-update.json
 
       - name: Publish TEST pre-release
@@ -290,17 +171,7 @@ jobs:
           UPDATE_NOTES: ${{ inputs.notes }}
         run: |
           $ErrorActionPreference = 'Stop'
-
-          if (-not $env:GH_TOKEN) {
-              throw 'Repository secret MINITIGER_UPDATE_PUBLISH_TOKEN is not configured.'
-          }
-
-          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) {
-              $env:CONFIGURED_UPDATE_REPOSITORY
-          } else {
-              $env:DEFAULT_UPDATE_REPOSITORY
-          }
-
+          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) { $env:CONFIGURED_UPDATE_REPOSITORY } else { $env:DEFAULT_UPDATE_REPOSITORY }
           $version = (Get-Content VERSION -Raw).Trim()
           $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
           $tag = "desktop-test-v$version-b$build"
@@ -309,32 +180,26 @@ jobs:
           $installer = (Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1).FullName
           $portable = (Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1).FullName
           $manifest = (Resolve-Path dist\minitiger-update.json).Path
-
           $notes = if ($env:UPDATE_NOTES) {
               $env:UPDATE_NOTES
           } else {
               "Private Minitiger Desktop TEST candidate build $build. Normal clients ignore this pre-release."
           }
 
-          Write-Host "Publishing TEST pre-release to $targetRepo"
-          Write-Host "Tag: $tag"
-
           & gh release create $tag --repo $targetRepo --title $title --notes $notes --prerelease $installer $portable $manifest
-
           if ($LASTEXITCODE -ne 0) {
-              throw "Private GitHub release creation failed with exit code $LASTEXITCODE."
+              throw "Private TEST release creation failed with exit code $LASTEXITCODE."
           }
 
-      - name: Private update summary
+      - name: TEST summary
         shell: pwsh
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           "### Minitiger TEST candidate published" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
-          "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
+          "- Version: **$version TEST**" >> $env:GITHUB_STEP_SUMMARY
           "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
           "- Desktop source: **$env:MINITIGER_SOURCE_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
           "- Desktop-Web source: **$env:MINITIGER_WEB_RESOLVED_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
-          "- Channel: **TEST / pre-release**" >> $env:GITHUB_STEP_SUMMARY
           "- Normal auto-update channel affected: **No**" >> $env:GITHUB_STEP_SUMMARY
-          "- Public Minitiger-Desktop release created: **No**" >> $env:GITHUB_STEP_SUMMARY
+          "- Release type: **Private pre-release**" >> $env:GITHUB_STEP_SUMMARY
