@@ -1,10 +1,6 @@
 name: Publish Minitiger STABLE update
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - ".github/workflows/publish-private-update.yml"
   workflow_dispatch:
     inputs:
       notes:
