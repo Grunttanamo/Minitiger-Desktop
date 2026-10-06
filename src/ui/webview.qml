@@ -222,6 +222,73 @@ Window
     onHeightChanged: console.log("MpvVideoItem height changed:", height)
   }
 
+  // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
+  // single-file selection on Windows even when the HTML input uses
+  // multiple. Handle only true multi-file requests ourselves and leave all
+  // other WebEngine file dialogs untouched.
+  Labs.FileDialog
+  {
+    id: webMultipleFileDialog
+    title: "Dateien auswählen"
+    fileMode: Labs.FileDialog.OpenFiles
+    nameFilters: [ "Alle Dateien (*)" ]
+
+    property var webRequest: null
+
+    function localPath(fileUrl)
+    {
+      var value = decodeURIComponent(fileUrl.toString());
+
+      if (value.indexOf("file:///") === 0)
+      {
+        value = value.substring(7);
+
+        // file:///C:/... becomes /C:/... after stripping the scheme.
+        // Chromium expects a local Windows path, not a file URL.
+        if (components.system.isWindows &&
+            value.length >= 3 &&
+            value.charAt(0) === "/" &&
+            value.charAt(2) === ":")
+          value = value.substring(1);
+
+        return value;
+      }
+
+      if (value.indexOf("file://") === 0)
+        return value.substring(7);
+
+      return value;
+    }
+
+    onAccepted:
+    {
+      if (!webRequest)
+        return;
+
+      var selectedPaths = [];
+      for (var i = 0; i < files.length; ++i)
+        selectedPaths.push(localPath(files[i]));
+
+      var request = webRequest;
+      webRequest = null;
+
+      if (selectedPaths.length > 0)
+        request.dialogAccept(selectedPaths);
+      else
+        request.dialogReject();
+    }
+
+    onRejected:
+    {
+      if (!webRequest)
+        return;
+
+      var request = webRequest;
+      webRequest = null;
+      request.dialogReject();
+    }
+  }
+
   WebEngineView
   {
     id: web
@@ -332,6 +399,17 @@ Window
       if (components.settings.ignoreSSLErrors()) {
         error.acceptCertificate()
       }
+    }
+
+    onFileDialogRequested: function(request)
+    {
+      if (request.mode !== FileDialogRequest.FileModeOpenMultiple)
+        return;
+
+      console.log("Handling WebEngine multi-file picker with native OpenFiles dialog");
+      request.accepted = true;
+      webMultipleFileDialog.webRequest = request;
+      webMultipleFileDialog.open();
     }
   }
 
