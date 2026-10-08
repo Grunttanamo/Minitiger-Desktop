@@ -1,6 +1,10 @@
 name: Build Minitiger TEST
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/build-private-test.yml"
   workflow_dispatch:
     inputs:
       notes:
