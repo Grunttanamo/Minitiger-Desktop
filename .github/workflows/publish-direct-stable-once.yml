@@ -1,0 +1,197 @@
+name: Publish Minitiger DIRECT STABLE once
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/publish-direct-stable-once.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minitiger-private-update
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    env:
+      DEFAULT_UPDATE_REPOSITORY: Grunttanamo/Minitiger-Desktop-Updates
+
+    steps:
+      - name: Resolve direct STABLE metadata
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
+          CONFIGURED_UPDATE_REPOSITORY: ${{ vars.MINITIGER_UPDATE_REPOSITORY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) { $env:CONFIGURED_UPDATE_REPOSITORY } else { $env:DEFAULT_UPDATE_REPOSITORY }
+
+          function Next-Version([string]$version) {
+              if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)$') { throw "Unsupported stable version: $version" }
+              $major = [int]$Matches[1]
+              $minor = [int]$Matches[2]
+              $patch = [int]$Matches[3] + 1
+              if ($patch -ge 10) { $patch = 0; $minor += 1 }
+              if ($minor -ge 10) { $minor = 0; $major += 1 }
+              return "$major.$minor.$patch"
+          }
+
+          $all = @((& gh release list --repo $targetRepo --limit 1000 --json tagName | ConvertFrom-Json))
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read private releases.' }
+
+          $maxBuild = 0
+          foreach ($release in $all) {
+              if ([string]$release.tagName -match '-b(\d+)$') {
+                  $maxBuild = [Math]::Max($maxBuild, [int]$Matches[1])
+              }
+          }
+
+          $latest = (& gh api "repos/$targetRepo/releases/latest" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve latest stable release.' }
+          if ([string]$latest.tag_name -notmatch '^desktop-v(\d+\.\d+\.\d+)-b\d+$') {
+              throw "Unsupported latest stable tag: $($latest.tag_name)"
+          }
+
+          $version = Next-Version $Matches[1]
+          $build = $maxBuild + 1
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "build=$build" >> $env:GITHUB_OUTPUT
+          Write-Host "Direct STABLE: $version · Build $build"
+
+      - name: Checkout current Minitiger Desktop source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+
+      - name: Set direct STABLE build metadata
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_BUILD: ${{ steps.release.outputs.build }}
+        run: |
+          $sourceCommit = (git rev-parse HEAD).Trim()
+          Set-Content -Path VERSION -Value $env:RELEASE_VERSION -NoNewline
+          "MINITIGER_RELEASE_VERSION=$env:RELEASE_VERSION" >> $env:GITHUB_ENV
+          "MINITIGER_PRIVATE_BUILD_NUMBER=$env:RELEASE_BUILD" >> $env:GITHUB_ENV
+          "MINITIGER_RELEASE_CHANNEL=stable" >> $env:GITHUB_ENV
+          "MINITIGER_SOURCE_COMMIT=$sourceCommit" >> $env:GITHUB_ENV
+          "MINITIGER_WEB_COMMIT_OVERRIDE=f61c04dd5f80a9caee22c0ef7267dd6c3ba8a6e9" >> $env:GITHUB_ENV
+          "MINITIGER_WEB_RESOLVED_COMMIT=f61c04dd5f80a9caee22c0ef7267dd6c3ba8a6e9" >> $env:GITHUB_ENV
+          Write-Host "Desktop source: $sourceCommit"
+          Write-Host "Desktop-Web source: f61c04dd5f80a9caee22c0ef7267dd6c3ba8a6e9"
+
+      - name: Install Node.js 24 for bundled Minitiger Web
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Prepare Windows build dependencies
+        shell: cmd
+        run: |
+          call dev\windows\setup.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Prepare libVLC
+        shell: cmd
+        run: |
+          call dev\windows\setup-vlc.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Build clean private distribution
+        shell: cmd
+        run: |
+          call dev\windows\package-clean.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Create direct STABLE manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content VERSION -Raw).Trim()
+          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+          $webCommitFile = Join-Path $env:GITHUB_WORKSPACE 'dev\windows\deps\minitiger-web-src\.minitiger-desktop-built-commit'
+
+          if (-not (Test-Path $webCommitFile)) {
+              throw 'Bundled Minitiger Web commit marker was not produced.'
+          }
+
+          $webCommit = (Get-Content $webCommitFile -Raw).Trim()
+          if ($webCommit -ne $env:MINITIGER_WEB_COMMIT_OVERRIDE) {
+              throw "Bundled Web commit $webCommit does not match requested commit $env:MINITIGER_WEB_COMMIT_OVERRIDE."
+          }
+
+          $installer = Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1
+          $portable = Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1
+          if (-not $installer -or -not $portable) { throw 'Private update packages were not produced.' }
+
+          $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          $portableHash = (Get-FileHash -Algorithm SHA256 $portable.FullName).Hash.ToLowerInvariant()
+
+          $notes = 'Stable 1.0.5: episode watched toggles; manual Sortiertitel has priority in literal A-Z library sorting; improved season-based audio flag detection; manual language flag overrides; series/staffel cascade for language flags. Cascade saving requires Minitiger Virtual Sync 1.6.18.0.'
+
+          $manifest = [ordered]@{
+              version = $version
+              build = $build
+              channel = 'stable'
+              commit = [string]$env:MINITIGER_SOURCE_COMMIT
+              webCommit = $webCommit
+              promotedFrom = 'direct-main'
+              publishedAt = (Get-Date).ToUniversalTime().ToString('o')
+              notes = $notes
+              installer = [ordered]@{
+                  fileName = $installer.Name
+                  sha256 = $installerHash
+                  size = [int64]$installer.Length
+              }
+              portable = [ordered]@{
+                  fileName = $portable.Name
+                  sha256 = $portableHash
+                  size = [int64]$portable.Length
+              }
+          }
+
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 dist\minitiger-update.json
+          Get-Content dist\minitiger-update.json
+
+      - name: Publish direct STABLE update
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
+          CONFIGURED_UPDATE_REPOSITORY: ${{ vars.MINITIGER_UPDATE_REPOSITORY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $targetRepo = if ($env:CONFIGURED_UPDATE_REPOSITORY) { $env:CONFIGURED_UPDATE_REPOSITORY } else { $env:DEFAULT_UPDATE_REPOSITORY }
+          $version = (Get-Content VERSION -Raw).Trim()
+          $build = [int]$env:MINITIGER_PRIVATE_BUILD_NUMBER
+          $tag = "desktop-v$version-b$build"
+          $title = "Minitiger Desktop $version · Build $build"
+
+          $installer = (Get-ChildItem dist\Minitiger-Desktop-*-Installer.exe | Select-Object -First 1).FullName
+          $portable = (Get-ChildItem dist\Minitiger-Desktop-*-Portable.zip | Select-Object -First 1).FullName
+          $manifest = (Resolve-Path dist\minitiger-update.json).Path
+          $notes = 'Stable 1.0.5: episode watched toggles; manual Sortiertitel has priority in literal A-Z library sorting; improved season-based audio flag detection; manual language flag overrides; series/staffel cascade for language flags. Cascade saving requires Minitiger Virtual Sync 1.6.18.0.'
+
+          & gh release create $tag --repo $targetRepo --title $title --notes $notes --latest $installer $portable $manifest
+          if ($LASTEXITCODE -ne 0) {
+              throw "Private GitHub release creation failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Direct STABLE summary
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          "### Minitiger direct STABLE published" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "- Version: **$version**" >> $env:GITHUB_STEP_SUMMARY
+          "- Build: **$env:MINITIGER_PRIVATE_BUILD_NUMBER**" >> $env:GITHUB_STEP_SUMMARY
+          "- Desktop source: **$env:MINITIGER_SOURCE_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
+          "- Desktop-Web source: **$env:MINITIGER_WEB_RESOLVED_COMMIT**" >> $env:GITHUB_STEP_SUMMARY
+          "- Companion required for cascade: **1.6.18.0**" >> $env:GITHUB_STEP_SUMMARY
