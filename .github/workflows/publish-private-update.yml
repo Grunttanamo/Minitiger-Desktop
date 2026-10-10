@@ -7,6 +7,11 @@ on:
         description: "Stable update notes"
         required: false
         default: ""
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/publish-private-update.yml"
 
 permissions:
   contents: read
@@ -70,7 +75,8 @@ jobs:
           $manifest = Get-Content (Join-Path $tempDir 'minitiger-update.json') -Raw | ConvertFrom-Json
           $version = [string]$manifest.version
           $sourceCommit = [string]$manifest.commit
-          $webCommit = [string]$manifest.webCommit
+          $webCommit = '55bb3d3230990ab01d82b0732d01603aef2c20d1'
+          Write-Host "Stable-only UI polish override: Desktop-Web $webCommit"
 
           if ([string]$manifest.channel -ne 'test') { throw 'Selected release is not a TEST manifest.' }
           if ($version -ne $expectedVersion) { throw "Latest TEST is $version but next stable must be $expectedVersion." }
