@@ -7,11 +7,6 @@ on:
         description: "Stable update notes"
         required: false
         default: ""
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/publish-private-update.yml"
 
 permissions:
   contents: read
@@ -73,17 +68,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not download manifest from $($test.tagName)." }
 
           $manifest = Get-Content (Join-Path $tempDir 'minitiger-update.json') -Raw | ConvertFrom-Json
-          $testVersion = [string]$manifest.version
-          $version = $expectedVersion
+          $version = [string]$manifest.version
           $sourceCommit = [string]$manifest.commit
-          $webCommit = '36d337964d48e486841fe7fde5775549d850e47a'
-          Write-Host "Promoting Desktop source from TEST $testVersion as stable $version"
-          Write-Host "Stable dialog centering override: Desktop-Web $webCommit"
+          $webCommit = [string]$manifest.webCommit
 
           if ([string]$manifest.channel -ne 'test') { throw 'Selected release is not a TEST manifest.' }
-          if ($testVersion -ne $expectedVersion) {
-              Write-Host "Latest TEST is $testVersion; using its tested Desktop source while publishing next stable version $expectedVersion with the explicitly selected Desktop-Web commit."
-          }
+          if ($version -ne $expectedVersion) { throw "Latest TEST is $version but next stable must be $expectedVersion." }
           if ($sourceCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop source commit.' }
           if ($webCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop-Web source commit.' }
 
