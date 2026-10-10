@@ -7,11 +7,6 @@ on:
         description: "TEST notes"
         required: false
         default: ""
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/build-private-test.yml"
 
 permissions:
   contents: read
