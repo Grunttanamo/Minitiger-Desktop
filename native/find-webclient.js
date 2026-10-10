@@ -54,6 +54,108 @@ async function tryConnect(server) {
     }
 }
 
+const CONNECTION_TIMEOUT_MS = 15000;
+
+const abortConnectivityCheck = () => {
+    if (
+        window.api
+        && window.api.system
+    ) {
+        window.api.system.cancelServerConnectivity();
+    }
+
+    if (
+        window.jmpCheckServerConnectivity
+        && window.jmpCheckServerConnectivity.abort
+    ) {
+        window.jmpCheckServerConnectivity.abort();
+    }
+};
+
+const tryConnectWithTimeout = async (
+    server,
+    timeoutMs = CONNECTION_TIMEOUT_MS
+) => {
+    let timedOut = false;
+    let timeoutId = 0;
+
+    const timeoutPromise =
+        new Promise(resolve => {
+            timeoutId = window.setTimeout(
+                () => {
+                    timedOut = true;
+                    console.warn(
+                        `Server connection timed out after ${timeoutMs} ms:`,
+                        server
+                    );
+                    abortConnectivityCheck();
+                    resolve(false);
+                },
+                timeoutMs
+            );
+        });
+
+    const connected =
+        await Promise.race([
+            tryConnect(server),
+            timeoutPromise
+        ]);
+
+    if (timeoutId) {
+        window.clearTimeout(timeoutId);
+    }
+
+    return {
+        connected: Boolean(connected),
+        timedOut
+    };
+};
+
+const showConnectionForm = (
+    timedOut = false
+) => {
+    const address =
+        document.getElementById('address');
+    const title =
+        document.getElementById('title');
+    const spinner =
+        document.getElementById('spinner');
+    const button =
+        document.getElementById('connect-button');
+
+    isConnecting = false;
+
+    title.textContent =
+        timedOut
+            ? (
+                window.savedServerRecoveryTitle
+                || 'Ist die Server-Adresse noch aktuell?'
+            )
+            : document
+                .getElementById('title')
+                .getAttribute('data-original-text');
+
+    title.style.visibility = 'visible';
+    address.classList.remove('connecting');
+    address.style.visibility = 'visible';
+    address.disabled = false;
+    spinner.style.display = 'none';
+    button.style.visibility = 'visible';
+
+    document.removeEventListener(
+        'keydown',
+        cancelOnEscape
+    );
+
+    address.focus();
+
+    if (timedOut) {
+        address.select();
+    }
+
+    updateButtonState();
+};
+
 let isConnecting = false;
 
 const updateButtonState = () => {
@@ -89,20 +191,17 @@ const startConnecting = async () => {
     button.style.visibility = 'hidden';
     document.addEventListener('keydown', cancelOnEscape);
 
-    // C++ handles retries, just wait for result
-    const connected = await tryConnect(server);
+    const {
+        connected,
+        timedOut
+    } = await tryConnectWithTimeout(
+        server
+    );
 
     if (!connected) {
-        isConnecting = false;
-        title.textContent = document.getElementById('title').getAttribute('data-original-text');
-        title.style.visibility = 'visible';
-        address.classList.remove('connecting');
-        address.style.visibility = 'visible';
-        address.disabled = false;
-        spinner.style.display = 'none';
-        button.style.visibility = 'visible';
-        document.removeEventListener('keydown', cancelOnEscape);
-        updateButtonState();
+        showConnectionForm(
+            timedOut
+        );
     }
 };
 
@@ -113,12 +212,7 @@ const cancelConnection = () => {
     isConnecting = false;
 
     // Cancel C++ connectivity check and abort JS promise
-    if (window.api && window.api.system) {
-        window.api.system.cancelServerConnectivity();
-    }
-    if (window.jmpCheckServerConnectivity.abort) {
-        window.jmpCheckServerConnectivity.abort();
-    }
+    abortConnectivityCheck();
 
     const address = document.getElementById('address');
     const title = document.getElementById('title');
@@ -198,22 +292,20 @@ document.addEventListener('keydown', (e) => {
         button.style.visibility = 'hidden';
         document.addEventListener('keydown', cancelOnEscape);
 
-        // C++ handles retries, just wait for result
-        const connected = await tryConnect(savedServer);
+        const {
+            connected,
+            timedOut
+        } = await tryConnectWithTimeout(
+            savedServer
+        );
 
         if (!connected) {
-            // User cancelled or error - show UI
-            isConnecting = false;
-            title.textContent = document.getElementById('title').getAttribute('data-original-text');
-            title.style.visibility = 'visible';
-            address.classList.remove('connecting');
-            address.style.visibility = 'visible';
-            address.disabled = false;
-            spinner.style.display = 'none';
-            button.style.visibility = 'visible';
-            document.removeEventListener('keydown', cancelOnEscape);
-            address.focus();
-            updateButtonState();
+            // After 15 seconds do not retry forever. Put the saved address
+            // back into an editable field so an IP/server change can be
+            // recovered without reinstalling the client.
+            showConnectionForm(
+                timedOut
+            );
         }
     } else {
         const title = document.getElementById('title');
