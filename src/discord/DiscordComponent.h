@@ -50,6 +50,7 @@ private:
   void clearActivity();
   void writeFrame(qint32 opcode, const QJsonObject& payload);
   void schedulePresenceUpdate();
+  void handlePositionUpdate(qint64 positionMs);
   QStringList endpointCandidates() const;
   QString formattedProgress() const;
 
@@ -72,6 +73,7 @@ private:
   double m_readingProgress = 0.0;
   qint64 m_positionMs = 0;
   qint64 m_durationMs = 0;
+  qint64 m_lastProgressPresenceAtMs = 0;
   quint64 m_nonce = 0;
 };
 
