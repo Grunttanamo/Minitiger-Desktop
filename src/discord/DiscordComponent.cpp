@@ -163,6 +163,7 @@ void DiscordComponent::componentPostInitialize()
     m_playing = false;
     m_paused = false;
     m_metadata.clear();
+    m_artworkUrl.clear();
     m_positionMs = 0;
     m_durationMs = 0;
     schedulePresenceUpdate();
@@ -256,10 +257,26 @@ void DiscordComponent::updatePlaybackActivity(
     m_playing = false;
     m_paused = false;
     m_metadata.clear();
+    m_artworkUrl.clear();
     m_positionMs = 0;
     m_durationMs = 0;
   }
 
+  schedulePresenceUpdate();
+}
+
+void DiscordComponent::setArtworkUrl(const QString& url)
+{
+  const QString trimmed = url.trimmed();
+
+  if (trimmed.size() > 300)
+    return;
+
+  if (!trimmed.isEmpty()
+      && !trimmed.startsWith("https://", Qt::CaseInsensitive))
+    return;
+
+  m_artworkUrl = trimmed;
   schedulePresenceUpdate();
 }
 
@@ -451,8 +468,16 @@ void DiscordComponent::sendActivity()
   }
 
   QJsonObject assets;
-  assets.insert("large_image", "minitiger");
-  assets.insert("large_text", "Minitiger Desktop");
+  assets.insert(
+      "large_image",
+      m_artworkUrl.isEmpty()
+          ? QString("minitiger")
+          : m_artworkUrl);
+  assets.insert(
+      "large_text",
+      title.isEmpty()
+          ? QString("Minitiger Desktop")
+          : title);
   activity.insert("assets", assets);
 
   QJsonObject args;
