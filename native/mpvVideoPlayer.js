@@ -362,6 +362,13 @@
                 // Convert to seconds
                 const ms = (options.playerStartPositionTicks || 0) / 10000;
                 this._currentPlayOptions = options;
+
+                // Do not wait for the first native "playing" transition.
+                // On a completely fresh episode that transition can happen
+                // before Jellyfin finishes wiring every listener. Push a
+                // playback snapshot as soon as the item is selected.
+                this.syncDiscordActivity('Playing', 250);
+
                 this._subtitleTrackIndexToSetOnPlaying = options.mediaSource.DefaultSubtitleStreamIndex == null ? -1 : options.mediaSource.DefaultSubtitleStreamIndex;
                 this._audioTrackIndexToSetOnPlaying = options.mediaSource.DefaultAudioStreamIndex;
 
@@ -406,7 +413,12 @@
                     streamdata,
                     audioRelIndex,
                     subtitleParam,
-                    resolve);
+                    () => {
+                        // Re-send after native load resolves so a brand-new
+                        // item is guaranteed to replace the browsing presence.
+                        this.syncDiscordActivity('Playing', 150);
+                        resolve();
+                    });
             });
         }
 
