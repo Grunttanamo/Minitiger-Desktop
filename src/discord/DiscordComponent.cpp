@@ -82,6 +82,21 @@ void DiscordComponent::componentPostInitialize()
     schedulePresenceUpdate();
   });
 
+  // Jellyfin-web also forwards canonical media-session metadata through
+  // notifyMetadata()/metadataChanged(). Native queue metadata is not emitted
+  // on every playback path, so Rich Presence must listen to both.
+  connect(&player, &PlayerComponent::metadataChanged, this,
+          [this](const QVariantMap& metadata) {
+    if (!metadata.isEmpty())
+      m_metadata = metadata;
+
+    const qint64 ticks = metadata.value("RunTimeTicks").toLongLong();
+    if (ticks > 0)
+      m_durationMs = ticks / 10000;
+
+    schedulePresenceUpdate();
+  });
+
   connect(&player, &PlayerComponent::positionUpdate, this,
           [this](quint64 positionMs) {
     m_positionMs = static_cast<qint64>(positionMs);
@@ -89,7 +104,20 @@ void DiscordComponent::componentPostInitialize()
       schedulePresenceUpdate();
   });
 
+  connect(&player, &PlayerComponent::positionChanged, this,
+          [this](qint64 positionMs) {
+    m_positionMs = qMax<qint64>(0, positionMs);
+    if (m_showProgress)
+      schedulePresenceUpdate();
+  });
+
   connect(&player, &PlayerComponent::updateDuration, this,
+          [this](qint64 durationMs) {
+    m_durationMs = qMax<qint64>(0, durationMs);
+    schedulePresenceUpdate();
+  });
+
+  connect(&player, &PlayerComponent::durationChanged, this,
           [this](qint64 durationMs) {
     m_durationMs = qMax<qint64>(0, durationMs);
     schedulePresenceUpdate();
@@ -107,6 +135,30 @@ void DiscordComponent::componentPostInitialize()
     schedulePresenceUpdate();
   });
 
+  connect(&player, &PlayerComponent::playbackStateChanged, this,
+          [this](const QString& state) {
+    if (state.compare("Playing", Qt::CaseInsensitive) == 0)
+    {
+      m_playing = true;
+      m_paused = false;
+    }
+    else if (state.compare("Paused", Qt::CaseInsensitive) == 0)
+    {
+      m_playing = true;
+      m_paused = true;
+    }
+    else if (state.compare("Stopped", Qt::CaseInsensitive) == 0)
+    {
+      m_playing = false;
+      m_paused = false;
+      m_metadata.clear();
+      m_positionMs = 0;
+      m_durationMs = 0;
+    }
+
+    schedulePresenceUpdate();
+  });
+
   const auto clearPlayback = [this]() {
     m_playing = false;
     m_paused = false;
@@ -119,6 +171,10 @@ void DiscordComponent::componentPostInitialize()
   connect(&player, &PlayerComponent::finished, this, clearPlayback);
   connect(&player, &PlayerComponent::canceled, this, clearPlayback);
   connect(&player, &PlayerComponent::stopped, this, clearPlayback);
+  connect(&player, &PlayerComponent::playbackStopped, this,
+          [clearPlayback](bool) {
+    clearPlayback();
+  });
   connect(&player, &PlayerComponent::error, this,
           [clearPlayback](const QString&) {
     clearPlayback();
