@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QProcessEnvironment>
+#include <QtGlobal>
 
 #include "player/PlayerComponent.h"
 
@@ -99,16 +100,12 @@ void DiscordComponent::componentPostInitialize()
 
   connect(&player, &PlayerComponent::positionUpdate, this,
           [this](quint64 positionMs) {
-    m_positionMs = static_cast<qint64>(positionMs);
-    if (m_showProgress)
-      schedulePresenceUpdate();
+    handlePositionUpdate(static_cast<qint64>(positionMs));
   });
 
   connect(&player, &PlayerComponent::positionChanged, this,
           [this](qint64 positionMs) {
-    m_positionMs = qMax<qint64>(0, positionMs);
-    if (m_showProgress)
-      schedulePresenceUpdate();
+    handlePositionUpdate(positionMs);
   });
 
   connect(&player, &PlayerComponent::updateDuration, this,
@@ -393,6 +390,7 @@ void DiscordComponent::sendBrowsingActivity()
   QJsonObject activity;
   activity.insert("type", 3);
   activity.insert("details", "Durchstöbert Minitiger");
+  activity.insert("status_display_type", 2);
 
   QJsonObject assets;
   assets.insert("large_image", "minitiger");
@@ -451,11 +449,13 @@ void DiscordComponent::sendActivity()
   }
   else if (m_showTitle && !title.isEmpty())
   {
-    activity.insert("details", title);
+    activity.insert("details", QString("Schaut %1").arg(title));
+    activity.insert("status_display_type", 2);
   }
   else
   {
     activity.insert("details", "Schaut gerade Minitiger");
+    activity.insert("status_display_type", 2);
   }
 
   QStringList stateParts;
@@ -565,10 +565,37 @@ void DiscordComponent::writeFrame(qint32 opcode, const QJsonObject& payload)
   m_socket->flush();
 }
 
+void DiscordComponent::handlePositionUpdate(qint64 positionMs)
+{
+  const qint64 normalizedPosition = qMax<qint64>(0, positionMs);
+  const qint64 previousPosition = m_positionMs;
+  m_positionMs = normalizedPosition;
+
+  if (!m_showProgress || !m_playing || m_paused)
+    return;
+
+  // Discord computes the moving progress bar from timestamps. Native mpv
+  // reports position many times per second, but repeatedly scheduling a
+  // presence update for each tick can starve a trailing-edge debounce.
+  // Refresh infrequently during ordinary playback and promptly for seeks.
+  const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+  const bool seeked = qAbs(normalizedPosition - previousPosition) > 5000;
+  if (seeked || m_lastProgressPresenceAtMs == 0
+      || nowMs - m_lastProgressPresenceAtMs >= 15000)
+  {
+    m_lastProgressPresenceAtMs = nowMs;
+    schedulePresenceUpdate();
+  }
+}
+
 void DiscordComponent::schedulePresenceUpdate()
 {
   if (!m_enabled || m_clientId.isEmpty())
     return;
 
-  m_presenceTimer.start();
+  // Coalesce events without postponing the deadline on each new signal.
+  // In particular, positionUpdate must never keep the Discord activity
+  // indefinitely stuck in "Durchstöbert Minitiger" while video is playing.
+  if (!m_presenceTimer.isActive())
+    m_presenceTimer.start();
 }
