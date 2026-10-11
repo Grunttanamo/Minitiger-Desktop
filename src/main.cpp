@@ -1,6 +1,9 @@
 #include <QGuiApplication>
 #include <QApplication>
 #include <QFileInfo>
+#include <QDir>
+#include <QFile>
+#include <QSaveFile>
 #include <QIcon>
 #include <QtQml>
 #include <optional>
@@ -390,6 +393,70 @@ int main(int argc, char *argv[])
     }
 
     ProfileManager::Get().setActiveProfile(*activeProfile);
+
+#ifdef Q_OS_WIN
+    // Invalidate ONLY disposable HTTP/rendering cache when the client
+    // version changes. Never touch the profile's dataDir("QtWebEngine"):
+    // it contains persistent cookies, local storage and login sessions.
+    // Run before QtWebEngine starts so its cache files are not in use.
+    {
+      const QString markerPath =
+          ProfileManager::activeProfile().dataDir("web-cache-version.txt");
+      const QString cachePath =
+          ProfileManager::activeProfile().cacheDir("QtWebEngine");
+      const QString dataPath =
+          ProfileManager::activeProfile().dataDir("QtWebEngine");
+      const QString version = Version::GetVersionString().trimmed();
+
+      QFile marker(markerPath);
+      QString previousVersion;
+      if (marker.open(QIODevice::ReadOnly | QIODevice::Text))
+      {
+        previousVersion = QString::fromUtf8(marker.readAll()).trimmed();
+        marker.close();
+      }
+
+      if (!version.isEmpty() && previousVersion != version)
+      {
+        const QString safeCachePath =
+            QDir::cleanPath(QFileInfo(cachePath).absoluteFilePath());
+        const QString safeDataPath =
+            QDir::cleanPath(QFileInfo(dataPath).absoluteFilePath());
+        const QString expectedParent =
+            QDir::cleanPath(QFileInfo(ProfileManager::activeProfile().cacheDir()).absoluteFilePath());
+
+        // Strictly allow this one QtWebEngine cache directory, never a
+        // profile root or a persistent-data directory.
+        const bool safe =
+            QFileInfo(safeCachePath).fileName() == "QtWebEngine"
+            && QDir::cleanPath(QFileInfo(safeCachePath).absolutePath()) == expectedParent
+            && safeCachePath.compare(safeDataPath, Qt::CaseInsensitive) != 0
+            && !QFileInfo(cachePath).isSymLink();
+
+        if (safe)
+        {
+          if (!QDir(cachePath).exists() || QDir(cachePath).removeRecursively())
+          {
+            QSaveFile newMarker(markerPath);
+            if (newMarker.open(QIODevice::WriteOnly | QIODevice::Text))
+            {
+              newMarker.write(version.toUtf8());
+              newMarker.commit();
+            }
+            qInfo() << "Disposable QtWebEngine cache refreshed for client version:" << version;
+          }
+          else
+          {
+            qWarning() << "Could not refresh disposable QtWebEngine cache:" << cachePath;
+          }
+        }
+        else
+        {
+          qWarning() << "Skipped QtWebEngine cache refresh: unsafe cache path";
+        }
+      }
+    }
+#endif
 
     // Now everything else - all paths are profile-specific from here on
     QString logLevel = parser.value("log-level");
