@@ -135,35 +135,13 @@ void DiscordComponent::componentPostInitialize()
     schedulePresenceUpdate();
   });
 
-  connect(&player, &PlayerComponent::playbackStateChanged, this,
-          [this](const QString& state) {
-    if (state.compare("Playing", Qt::CaseInsensitive) == 0)
-    {
-      m_playing = true;
-      m_paused = false;
-    }
-    else if (state.compare("Paused", Qt::CaseInsensitive) == 0)
-    {
-      m_playing = true;
-      m_paused = true;
-    }
-    else if (state.compare("Stopped", Qt::CaseInsensitive) == 0)
-    {
-      m_playing = false;
-      m_paused = false;
-      m_metadata.clear();
-      m_positionMs = 0;
-      m_durationMs = 0;
-    }
-
-    schedulePresenceUpdate();
-  });
-
   const auto clearPlayback = [this]() {
     m_playing = false;
     m_paused = false;
     m_metadata.clear();
     m_artworkUrl.clear();
+    m_activityKind = "watching";
+    m_readingProgress = 0.0;
     m_positionMs = 0;
     m_durationMs = 0;
     schedulePresenceUpdate();
@@ -172,10 +150,6 @@ void DiscordComponent::componentPostInitialize()
   connect(&player, &PlayerComponent::finished, this, clearPlayback);
   connect(&player, &PlayerComponent::canceled, this, clearPlayback);
   connect(&player, &PlayerComponent::stopped, this, clearPlayback);
-  connect(&player, &PlayerComponent::playbackStopped, this,
-          [clearPlayback](bool) {
-    clearPlayback();
-  });
   connect(&player, &PlayerComponent::error, this,
           [clearPlayback](const QString&) {
     clearPlayback();
@@ -234,6 +208,8 @@ void DiscordComponent::updatePlaybackActivity(
     qint64 durationMs,
     const QString& state)
 {
+  m_activityKind = "watching";
+  m_readingProgress = 0.0;
   if (!metadata.isEmpty())
     m_metadata = metadata;
 
@@ -262,6 +238,37 @@ void DiscordComponent::updatePlaybackActivity(
     m_durationMs = 0;
   }
 
+  schedulePresenceUpdate();
+}
+
+void DiscordComponent::updateReadingActivity(
+    const QVariantMap& metadata,
+    double progress,
+    const QString& state)
+{
+  if (state.compare("Stopped", Qt::CaseInsensitive) == 0)
+  {
+    m_playing = false;
+    m_paused = false;
+    m_metadata.clear();
+    m_artworkUrl.clear();
+    m_activityKind = "watching";
+    m_readingProgress = 0.0;
+    m_positionMs = 0;
+    m_durationMs = 0;
+    schedulePresenceUpdate();
+    return;
+  }
+
+  if (!metadata.isEmpty())
+    m_metadata = metadata;
+
+  m_activityKind = "reading";
+  m_readingProgress = qBound(0.0, progress, 1.0);
+  m_playing = true;
+  m_paused = false;
+  m_positionMs = 0;
+  m_durationMs = 0;
   schedulePresenceUpdate();
 }
 
@@ -425,17 +432,36 @@ void DiscordComponent::sendActivity()
   QJsonObject activity;
   activity.insert("type", 3);
 
-  if (m_showTitle && !title.isEmpty())
+  const bool isReading =
+      m_activityKind.compare("reading", Qt::CaseInsensitive) == 0;
+
+  if (isReading)
+  {
+    if (m_showTitle && !title.isEmpty())
+      activity.insert("details", QString("Liest %1").arg(title));
+    else
+      activity.insert("details", "Liest in Minitiger");
+
+    // Newer Discord clients can use the details field for the compact
+    // profile status text. Older clients simply ignore this field.
+    activity.insert("status_display_type", 2);
+  }
+  else if (m_showTitle && !title.isEmpty())
+  {
     activity.insert("details", title);
+  }
   else
+  {
     activity.insert("details", "Schaut gerade Minitiger");
+  }
 
   QStringList stateParts;
 
-  if (m_paused)
+  if (!isReading && m_paused)
     stateParts << "Pausiert";
 
-  if (m_showEpisode
+  if (!isReading
+      && m_showEpisode
       && type.compare("Episode", Qt::CaseInsensitive) == 0)
   {
     if (seasonNumber > 0)
@@ -448,13 +474,21 @@ void DiscordComponent::sendActivity()
       stateParts << name;
   }
 
-  if (m_showProgress && m_durationMs > 0 && m_paused)
+  if (isReading && m_readingProgress > 0.0)
+  {
+    stateParts << QString("%1 % gelesen")
+        .arg(qRound(m_readingProgress * 100.0));
+  }
+  else if (m_showProgress && m_durationMs > 0 && m_paused)
+  {
     stateParts << formattedProgress();
+  }
 
   if (!stateParts.isEmpty())
     activity.insert("state", stateParts.join(" · "));
 
-  if (m_showProgress
+  if (!isReading
+      && m_showProgress
       && !m_paused
       && m_durationMs > 0
       && m_positionMs >= 0
