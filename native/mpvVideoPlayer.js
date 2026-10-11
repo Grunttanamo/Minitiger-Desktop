@@ -144,6 +144,16 @@
                 }
 
                 this._currentTime = time;
+
+                if (window.api?.discord?.updatePlaybackActivity) {
+                    window.api.discord.updatePlaybackActivity(
+                        this._currentPlayOptions?.item || {},
+                        Number(time || 0),
+                        Number(this._duration || 0),
+                        this._paused ? 'Paused' : 'Playing'
+                    );
+                }
+
                 this.events.trigger(this, 'timeupdate');
             };
 
@@ -185,6 +195,15 @@
                     this.events.trigger(this, 'unpause');
                 }
 
+                if (window.api?.discord?.updatePlaybackActivity) {
+                    window.api.discord.updatePlaybackActivity(
+                        this._currentPlayOptions?.item || {},
+                        Number(this._currentTime || 0),
+                        Number(this._duration || 0),
+                        'Playing'
+                    );
+                }
+
                 this.events.trigger(this, 'playing');
             };
 
@@ -193,6 +212,16 @@
              */
             this.onPause = () => {
                 this._paused = true;
+
+                if (window.api?.discord?.updatePlaybackActivity) {
+                    window.api.discord.updatePlaybackActivity(
+                        this._currentPlayOptions?.item || {},
+                        Number(this._currentTime || 0),
+                        Number(this._duration || 0),
+                        'Paused'
+                    );
+                }
+
                 // For Syncplay ready notification
                 this.events.trigger(this, 'pause');
             };
@@ -236,6 +265,15 @@
 
             this.onDuration = (duration) => {
                 this._duration = duration;
+
+                if (window.api?.discord?.updatePlaybackActivity) {
+                    window.api.discord.updatePlaybackActivity(
+                        this._currentPlayOptions?.item || {},
+                        Number(this._currentTime || 0),
+                        Number(duration || 0),
+                        this._paused ? 'Paused' : 'Playing'
+                    );
+                }
             };
         }
 
@@ -451,6 +489,15 @@
             const stopInfo = {
                 src: this._currentSrc
             };
+
+            if (window.api?.discord?.updatePlaybackActivity) {
+                window.api.discord.updatePlaybackActivity(
+                    {},
+                    0,
+                    0,
+                    'Stopped'
+                );
+            }
 
             this.events.trigger(this, 'stopped', [stopInfo]);
 
