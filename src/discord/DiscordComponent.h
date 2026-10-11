@@ -33,6 +33,7 @@ public:
       qint64 positionMs,
       qint64 durationMs,
       const QString& state);
+  Q_INVOKABLE void setArtworkUrl(const QString& url);
 
 private:
   explicit DiscordComponent(QObject* parent = nullptr);
@@ -61,6 +62,7 @@ private:
   bool m_paused = false;
 
   QString m_clientId;
+  QString m_artworkUrl;
   QVariantMap m_metadata;
   qint64 m_positionMs = 0;
   qint64 m_durationMs = 0;
