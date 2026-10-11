@@ -33,6 +33,10 @@ public:
       qint64 positionMs,
       qint64 durationMs,
       const QString& state);
+  Q_INVOKABLE void updateReadingActivity(
+      const QVariantMap& metadata,
+      double progress,
+      const QString& state);
   Q_INVOKABLE void setArtworkUrl(const QString& url);
 
 private:
@@ -63,7 +67,9 @@ private:
 
   QString m_clientId;
   QString m_artworkUrl;
+  QString m_activityKind = "watching";
   QVariantMap m_metadata;
+  double m_readingProgress = 0.0;
   qint64 m_positionMs = 0;
   qint64 m_durationMs = 0;
   quint64 m_nonce = 0;
