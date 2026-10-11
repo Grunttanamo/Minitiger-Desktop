@@ -67,6 +67,31 @@ window.NativeShell = {
 
     getPlugins() {
         return plugins;
+    },
+
+    configureDiscordPresence(options) {
+        if (!window.api?.discord?.configure) {
+            return false;
+        }
+
+        const value = options || {};
+        window.api.discord.configure(
+            Boolean(value.enabled),
+            String(value.clientId || ''),
+            value.showTitle !== false,
+            value.showEpisode !== false,
+            value.showProgress !== false
+        );
+        return true;
+    },
+
+    refreshDiscordPresence() {
+        if (!window.api?.discord?.refreshPresence) {
+            return false;
+        }
+
+        window.api.discord.refreshPresence();
+        return true;
     }
 };
 
