@@ -28,6 +28,11 @@ public:
 
   Q_INVOKABLE bool isConnected() const;
   Q_INVOKABLE void refreshPresence();
+  Q_INVOKABLE void updatePlaybackActivity(
+      const QVariantMap& metadata,
+      qint64 positionMs,
+      qint64 durationMs,
+      const QString& state);
 
 private:
   explicit DiscordComponent(QObject* parent = nullptr);
