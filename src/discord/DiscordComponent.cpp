@@ -227,6 +227,42 @@ void DiscordComponent::refreshPresence()
   schedulePresenceUpdate();
 }
 
+void DiscordComponent::updatePlaybackActivity(
+    const QVariantMap& metadata,
+    qint64 positionMs,
+    qint64 durationMs,
+    const QString& state)
+{
+  if (!metadata.isEmpty())
+    m_metadata = metadata;
+
+  m_positionMs = qMax<qint64>(0, positionMs);
+
+  if (durationMs > 0)
+    m_durationMs = durationMs;
+
+  if (state.compare("Playing", Qt::CaseInsensitive) == 0)
+  {
+    m_playing = true;
+    m_paused = false;
+  }
+  else if (state.compare("Paused", Qt::CaseInsensitive) == 0)
+  {
+    m_playing = true;
+    m_paused = true;
+  }
+  else if (state.compare("Stopped", Qt::CaseInsensitive) == 0)
+  {
+    m_playing = false;
+    m_paused = false;
+    m_metadata.clear();
+    m_positionMs = 0;
+    m_durationMs = 0;
+  }
+
+  schedulePresenceUpdate();
+}
+
 QStringList DiscordComponent::endpointCandidates() const
 {
   QStringList result;
