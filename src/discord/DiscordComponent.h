@@ -6,8 +6,7 @@
 #include <QTimer>
 #include <QVariantMap>
 
-#include "core/ComponentManager.h"
-#include "utils/Utils.h"
+#include "ComponentManager.h"
 
 class DiscordComponent : public ComponentBase
 {
