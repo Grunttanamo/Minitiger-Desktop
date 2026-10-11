@@ -41,6 +41,13 @@ bool DiscordComponent::componentInitialize()
     });
   });
 
+  connect(m_socket, &QLocalSocket::readyRead, this, [this]() {
+    // Discord replies to every RPC command. We do not need the response
+    // payload for presence updates, but it must be drained so the local
+    // socket buffer cannot fill during long playback sessions.
+    m_socket->readAll();
+  });
+
   connect(m_socket, &QLocalSocket::disconnected, this, [this]() {
     if (m_enabled)
       QTimer::singleShot(1500, this, [this]() {
