@@ -263,6 +263,9 @@ void DiscordComponent::updateReadingActivity(
   if (!metadata.isEmpty())
     m_metadata = metadata;
 
+  // Do not retain the previous video/movie artwork when switching to a
+  // book reader. Reading artwork can be added independently later.
+  m_artworkUrl.clear();
   m_activityKind = "reading";
   m_readingProgress = qBound(0.0, progress, 1.0);
   m_playing = true;
