@@ -122,6 +122,39 @@
             this._bufferedRanges = [];
 
             /**
+             * Push one debounced playback snapshot to Discord.
+             * Discord Rich Presence is timestamp-based while playing, so
+             * sending every position tick only causes RPC throttling.
+             */
+            this._discordSyncTimer = null;
+            this.syncDiscordActivity = (state, delay = 0) => {
+                if (!window.api?.discord?.updatePlaybackActivity) {
+                    return;
+                }
+
+                if (this._discordSyncTimer) {
+                    clearTimeout(this._discordSyncTimer);
+                    this._discordSyncTimer = null;
+                }
+
+                const push = () => {
+                    this._discordSyncTimer = null;
+                    window.api.discord.updatePlaybackActivity(
+                        this._currentPlayOptions?.item || {},
+                        Number(this._currentTime || 0),
+                        Number(this._duration || 0),
+                        state
+                    );
+                };
+
+                if (delay > 0) {
+                    this._discordSyncTimer = setTimeout(push, delay);
+                } else {
+                    push();
+                }
+            };
+
+            /**
              * @private
              */
             this.onBufferedRangesUpdated = (ranges) => {
@@ -144,16 +177,6 @@
                 }
 
                 this._currentTime = time;
-
-                if (window.api?.discord?.updatePlaybackActivity) {
-                    window.api.discord.updatePlaybackActivity(
-                        this._currentPlayOptions?.item || {},
-                        Number(time || 0),
-                        Number(this._duration || 0),
-                        this._paused ? 'Paused' : 'Playing'
-                    );
-                }
-
                 this.events.trigger(this, 'timeupdate');
             };
 
@@ -195,14 +218,11 @@
                     this.events.trigger(this, 'unpause');
                 }
 
-                if (window.api?.discord?.updatePlaybackActivity) {
-                    window.api.discord.updatePlaybackActivity(
-                        this._currentPlayOptions?.item || {},
-                        Number(this._currentTime || 0),
-                        Number(this._duration || 0),
-                        'Playing'
-                    );
-                }
+                // Send once immediately and once shortly after playback
+                // starts. The delayed snapshot catches duration/metadata that
+                // Jellyfin resolves a moment after a brand-new episode starts.
+                this.syncDiscordActivity('Playing');
+                this.syncDiscordActivity('Playing', 1200);
 
                 this.events.trigger(this, 'playing');
             };
@@ -213,14 +233,7 @@
             this.onPause = () => {
                 this._paused = true;
 
-                if (window.api?.discord?.updatePlaybackActivity) {
-                    window.api.discord.updatePlaybackActivity(
-                        this._currentPlayOptions?.item || {},
-                        Number(this._currentTime || 0),
-                        Number(this._duration || 0),
-                        'Paused'
-                    );
-                }
+                this.syncDiscordActivity('Paused');
 
                 // For Syncplay ready notification
                 this.events.trigger(this, 'pause');
@@ -266,14 +279,12 @@
             this.onDuration = (duration) => {
                 this._duration = duration;
 
-                if (window.api?.discord?.updatePlaybackActivity) {
-                    window.api.discord.updatePlaybackActivity(
-                        this._currentPlayOptions?.item || {},
-                        Number(this._currentTime || 0),
-                        Number(duration || 0),
-                        this._paused ? 'Paused' : 'Playing'
-                    );
-                }
+                // One duration-ready refresh is enough; Discord advances the
+                // progress bar from timestamps without per-second RPC calls.
+                this.syncDiscordActivity(
+                    this._paused ? 'Paused' : 'Playing',
+                    120
+                );
             };
         }
 
@@ -489,6 +500,11 @@
             const stopInfo = {
                 src: this._currentSrc
             };
+
+            if (this._discordSyncTimer) {
+                clearTimeout(this._discordSyncTimer);
+                this._discordSyncTimer = null;
+            }
 
             if (window.api?.discord?.updatePlaybackActivity) {
                 window.api.discord.updatePlaybackActivity(
