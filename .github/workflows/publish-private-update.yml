@@ -7,11 +7,6 @@ on:
         description: "Stable update notes"
         required: false
         default: ""
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/publish-private-update.yml"
 
 permissions:
   contents: read
