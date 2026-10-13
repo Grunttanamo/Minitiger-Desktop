@@ -29,6 +29,98 @@ Window
                                     components.settings.windowsTrayIcon
 
   signal reloadWebClient()
+  property bool videoActiveForPopout: false
+  property bool videoPoppedOut: false
+  property bool videoPopoutPaused: false
+
+  // EXPERIMENTAL: transfer the existing MPV Quick item instead of creating
+  // another decoder/player, so track selection and position remain intact.
+  function setVideoPopout(enable) {
+    if (enable === videoPoppedOut)
+      return;
+
+    if (enable) {
+      if (!videoActiveForPopout)
+        return;
+      videoPoppedOut = true;
+      video.parent = detachedVideoWindow.contentItem;
+      detachedVideoWindow.show();
+      detachedVideoWindow.raise();
+      detachedVideoWindow.requestActivate();
+    } else {
+      video.parent = mainWindow.contentItem;
+      videoPoppedOut = false;
+      detachedVideoWindow.hide();
+      mainWindow.raise();
+    }
+  }
+
+  Connections {
+    target: components.player
+    function onVideoPlaybackActive(active) {
+      mainWindow.videoActiveForPopout = active;
+      if (!active && mainWindow.videoPoppedOut)
+        mainWindow.setVideoPopout(false);
+    }
+    function onPlaying() { mainWindow.videoPopoutPaused = false; }
+    function onPaused() { mainWindow.videoPopoutPaused = true; }
+  }
+
+  Window {
+    id: detachedVideoWindow
+    title: "Minitiger – Video-Pop-out"
+    width: 960
+    height: 540
+    minimumWidth: 320
+    minimumHeight: 180
+    visible: false
+    color: "#000000"
+    onClosing: function(close) {
+      close.accepted = false;
+      mainWindow.setVideoPopout(false);
+    }
+    Rectangle {
+      color: "#15151b"
+      opacity: 0.92
+      anchors.top: parent.top
+      anchors.right: parent.right
+      anchors.margins: 12
+      width: popoutControls.implicitWidth + 24
+      height: popoutControls.implicitHeight + 16
+      radius: 10
+      z: 200
+      Row {
+        id: popoutControls
+        anchors.centerIn: parent
+        spacing: 12
+        Button {
+          text: mainWindow.videoPopoutPaused ? "▶" : "⏸"
+          onClicked: {
+            if (mainWindow.videoPopoutPaused) components.player.play();
+            else components.player.pause();
+          }
+          ToolTip.visible: hovered
+          ToolTip.text: "Wiedergabe / Pause"
+        }
+        Button {
+          text: "↙ Zurück"
+          onClicked: mainWindow.setVideoPopout(false)
+        }
+      }
+    }
+  }
+
+  Button {
+    id: detachVideoButton
+    z: 250
+    visible: mainWindow.videoActiveForPopout && !mainWindow.videoPoppedOut
+    text: "↗ Pop-out"
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.topMargin: 70
+    anchors.rightMargin: 24
+    onClicked: mainWindow.setVideoPopout(true)
+  }
 
   Component.onCompleted: {
     if (components && components.settings) {
@@ -209,11 +301,9 @@ Window
     objectName: "video"
     enabled: true
 
-    width: mainWindow.contentItem.width
-    height: mainWindow.contentItem.height
-    anchors.left: mainWindow.contentItem.left
-    anchors.right: mainWindow.contentItem.right
-    anchors.top: mainWindow.contentItem.top
+    width: parent ? parent.width : mainWindow.width
+    height: parent ? parent.height : mainWindow.height
+    anchors.fill: parent
 
     Component.onCompleted: {
       console.log("MpvVideoItem size:", width, "x", height, "visible:", visible)
