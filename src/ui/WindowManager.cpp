@@ -161,6 +161,13 @@ void WindowManager::initializeWindow(QQuickWindow* window)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+void WindowManager::setVideoPopout(bool enable)
+{
+  if (m_window)
+    QMetaObject::invokeMethod(m_window, "setVideoPopout", Qt::QueuedConnection,
+                              Q_ARG(QVariant, QVariant(enable)));
+}
+
 void WindowManager::setAlwaysOnTop(bool enable)
 {
   if (!m_window)
