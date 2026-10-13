@@ -89,7 +89,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ steps.release.outputs.source_commit }}
-          submodules: recursive
+          submodules: false
+
+      - name: Initialize mpvqt from KDE GitHub mirror
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # KDE maintains a public read-only GitHub mirror. Keep the pinned
+          # submodule commit: this is a URL fallback, not a version upgrade.
+          git config --global 'url.https://github.com/KDE/mpvqt.git.insteadOf' 'https://invent.kde.org/libraries/mpvqt.git'
+          git submodule sync --recursive
+          if ($LASTEXITCODE -ne 0) { throw 'Submodule sync failed.' }
+          git -c http.version=HTTP/1.1 submodule update --init --recursive --depth=1
+          if ($LASTEXITCODE -ne 0) { throw 'mpvqt mirror checkout failed.' }
 
       - name: Set promoted STABLE build metadata
         shell: pwsh
