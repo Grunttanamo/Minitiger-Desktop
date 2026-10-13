@@ -34,38 +34,58 @@ Window
   property bool videoPopoutPaused: false
   property bool popoutControlsVisible: true
   property bool popoutButtonVisible: true
+  property bool popoutTransitioning: false
+  property bool popoutBrowseEnabled: false
 
   function prepareVideoSurface(target) {
     // Stop old anchors before moving a Qt Quick renderer between windows.
     // Re-establish them after the destination has a native surface.
     video.anchors.fill = undefined;
     video.parent = target;
-    video.anchors.fill = target;
+    video.width = Qt.binding(function() { return target.width; });
+    video.height = Qt.binding(function() { return target.height; });
     video.update();
   }
 
   // EXPERIMENTAL: transfer the existing MPV Quick item instead of creating
   // another decoder/player, so track selection and position remain intact.
   function setVideoPopout(enable) {
-    if (enable === videoPoppedOut)
+    if (enable === videoPoppedOut || popoutTransitioning)
       return;
+    popoutTransitioning = true;
+    popoutTransitionGuard.restart();
 
     if (enable) {
       if (!videoActiveForPopout)
         return;
       detachedVideoWindow.show();
       videoPoppedOut = true;
+      // Do not cross window render trees in the same frame as show().
       Qt.callLater(function() {
         prepareVideoSurface(detachedVideoWindow.contentItem);
+        mainWindow.popoutBrowseEnabled = true;
+        components.window.setCursorVisibility(true);
         detachedVideoWindow.raise();
         detachedVideoWindow.requestActivate();
+        popoutTransitioning = false;
       });
     } else {
+      popoutBrowseEnabled = false;
       videoPoppedOut = false;
-      prepareVideoSurface(mainWindow.contentItem);
-      detachedVideoWindow.hide();
-      mainWindow.raise();
+      Qt.callLater(function() {
+        prepareVideoSurface(mainWindow.contentItem);
+        detachedVideoWindow.hide();
+        components.window.setCursorVisibility(true);
+        mainWindow.raise();
+        popoutTransitioning = false;
+      });
     }
+  }
+
+  Timer {
+    id: popoutTransitionGuard
+    interval: 1200
+    onTriggered: mainWindow.popoutTransitioning = false
   }
 
   Connections {
@@ -99,6 +119,16 @@ Window
     onClosing: function(close) {
       close.accepted = false;
       mainWindow.setVideoPopout(false);
+    }
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      acceptedButtons: Qt.NoButton
+      onPositionChanged: {
+        components.window.setCursorVisibility(true);
+        mainWindow.popoutControlsVisible = true;
+        popoutControlsHide.restart();
+      }
     }
     HoverHandler {
       id: popoutHover
@@ -164,60 +194,24 @@ Window
     }
   }
 
-  Timer {
-    id: detachControlHide
-    interval: 3500
-    onTriggered: mainWindow.popoutButtonVisible = false
-  }
-  Rectangle {
-    id: detachBackground
-    z: 250
-    visible: mainWindow.videoActiveForPopout && !mainWindow.videoPoppedOut && mainWindow.popoutButtonVisible
-    color: "#d9191a21"
-    border.color: "#50656a79"
-    radius: 9
-    width: detachLabel.implicitWidth + 24
-    height: 34
-    anchors.top: parent.top
-    anchors.right: parent.right
-    anchors.topMargin: 54
-    anchors.rightMargin: 22
-    Text {
-      id: detachLabel
-      text: "↗ Pop-out"
-      color: "#f9fafb"
-      anchors.centerIn: parent
-      font.pixelSize: 13
-      font.bold: true
-    }
-    MouseArea {
-      anchors.fill: parent
-      cursorShape: Qt.PointingHandCursor
-      onClicked: mainWindow.setVideoPopout(true)
-    }
-  }
-  Connections {
-    target: components.player
-    function onPlaying() {
-      mainWindow.popoutButtonVisible = true;
-      detachControlHide.restart();
-    }
-  }
   // Separate browsing surface: the playback WebEngineView stays alive and
   // retains Jellyfin's video OSD while the user navigates this second view.
   WebEngineView {
     id: browseWeb
     z: 110
     anchors.fill: parent
-    visible: mainWindow.videoPoppedOut
+    visible: mainWindow.popoutBrowseEnabled
     enabled: visible
-    url: mainWindow.videoPoppedOut ? mainWindow.webUrl + "#/home" : ""
+    url: mainWindow.popoutBrowseEnabled ? mainWindow.webUrl + "#/home" : ""
     profile: web.profile
     webChannel: webChannelObject
     backgroundColor: "#101014"
     settings.localContentCanAccessRemoteUrls: true
     settings.localContentCanAccessFileUrls: true
     settings.playbackRequiresUserGesture: false
+    onLoadingChanged: function(info) {
+      components.window.setCursorVisibility(true)
+    }
     onNewWindowRequested: function(request) {
       if (request.userInitiated && request.requestedUrl)
         components.system.openExternalUrl(request.requestedUrl.toString());
