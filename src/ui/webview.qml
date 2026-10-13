@@ -36,185 +36,163 @@ Window
   property bool popoutButtonVisible: true
   property bool popoutTransitioning: false
   property bool popoutBrowseEnabled: false
+  property rect savedMainGeometry: Qt.rect(0, 0, 1280, 720)
+  property bool popoutBrowserLoaded: false
 
-  function prepareVideoSurface(target) {
-    // Stop old anchors before moving a Qt Quick renderer between windows.
-    // Re-establish them after the destination has a native surface.
-    video.anchors.fill = undefined;
-    video.parent = target;
-    video.width = Qt.binding(function() { return target.width; });
-    video.height = Qt.binding(function() { return target.height; });
-    video.update();
-  }
-
-  // EXPERIMENTAL: transfer the existing MPV Quick item instead of creating
-  // another decoder/player, so track selection and position remain intact.
+  // MPV stays in the original scene graph for its entire lifetime. Moving an
+  // MpvAbstractItem between QQuickWindows invalidates its render targets,
+  // producing blue frames, broken ASS subtitles and eventual GPU crashes.
+  // Instead we turn the EXISTING window into the detachable video surface.
   function setVideoPopout(enable) {
     if (enable === videoPoppedOut || popoutTransitioning)
       return;
+    if (enable && !videoActiveForPopout)
+      return;
+
     popoutTransitioning = true;
-    popoutTransitionGuard.restart();
-
     if (enable) {
-      if (!videoActiveForPopout)
-        return;
-      detachedVideoWindow.show();
+      savedMainGeometry = Qt.rect(mainWindow.x, mainWindow.y, mainWindow.width, mainWindow.height);
+      browseWindow.x = mainWindow.x;
+      browseWindow.y = mainWindow.y;
+      browseWindow.width = mainWindow.width;
+      browseWindow.height = mainWindow.height;
       videoPoppedOut = true;
-      // Do not cross window render trees in the same frame as show().
-      Qt.callLater(function() {
-        prepareVideoSurface(detachedVideoWindow.contentItem);
-        mainWindow.popoutBrowseEnabled = true;
-        components.window.setCursorVisibility(true);
-        detachedVideoWindow.raise();
-        detachedVideoWindow.requestActivate();
-        popoutTransitioning = false;
-      });
+      web.visible = false;
+      // Show the authenticated browsing window at the original dimensions.
+      browseWindow.show();
+      if (!popoutBrowserLoaded) {
+        popoutBrowserLoaded = true;
+        var current = web.url.toString();
+        var base = current.split("#")[0];
+        browseWeb.url = base + "#/home";
+      }
+      mainWindow.width = 960;
+      mainWindow.height = 540;
+      mainWindow.x = savedMainGeometry.x + 60;
+      mainWindow.y = savedMainGeometry.y + 60;
+      mainWindow.title = "Minitiger – Video-Pop-out";
+      browseWindow.raise();
+      browseWindow.requestActivate();
+      popoutControlsVisible = true;
+      controlsHide.restart();
     } else {
-      popoutBrowseEnabled = false;
       videoPoppedOut = false;
-      Qt.callLater(function() {
-        prepareVideoSurface(mainWindow.contentItem);
-        detachedVideoWindow.hide();
-        components.window.setCursorVisibility(true);
-        mainWindow.raise();
-        popoutTransitioning = false;
-      });
+      browseWindow.hide();
+      web.visible = true;
+      mainWindow.title = "Minitiger Desktop";
+      mainWindow.x = savedMainGeometry.x;
+      mainWindow.y = savedMainGeometry.y;
+      mainWindow.width = savedMainGeometry.width;
+      mainWindow.height = savedMainGeometry.height;
+      mainWindow.raise();
+      mainWindow.requestActivate();
     }
-  }
-
-  Timer {
-    id: popoutTransitionGuard
-    interval: 1200
-    onTriggered: mainWindow.popoutTransitioning = false
+    components.window.setCursorVisibility(true);
+    popoutTransitioning = false;
   }
 
   Connections {
     target: components.player
-    function onVideoPlaybackActive(active) {
-      // A paused or buffering video is NOT a stopped video.
-      if (active) mainWindow.videoActiveForPopout = true;
-    }
     function onPlaying() {
       mainWindow.videoActiveForPopout = true;
       mainWindow.videoPopoutPaused = false;
+      mainWindow.popoutButtonVisible = true;
     }
     function onPaused() { mainWindow.videoPopoutPaused = true; }
     function onPlaybackStopped(isNavigating) {
       if (!isNavigating) {
         mainWindow.videoActiveForPopout = false;
-        if (mainWindow.videoPoppedOut) mainWindow.setVideoPopout(false);
+        if (mainWindow.videoPoppedOut)
+          mainWindow.setVideoPopout(false);
       }
     }
   }
 
   Window {
-    id: detachedVideoWindow
-    title: "Minitiger – Video-Pop-out"
-    width: 960
-    height: 540
-    minimumWidth: 320
-    minimumHeight: 180
+    id: browseWindow
+    title: "Minitiger Desktop – Mediathek"
     visible: false
-    color: "#000000"
+    width: 1280
+    height: 720
+    minimumWidth: 600
+    minimumHeight: 400
+    color: "#101014"
     onClosing: function(close) {
       close.accepted = false;
       mainWindow.setVideoPopout(false);
     }
-    MouseArea {
+
+    WebEngineView {
+      id: browseWeb
       anchors.fill: parent
-      hoverEnabled: true
-      acceptedButtons: Qt.NoButton
-      onPositionChanged: {
+      backgroundColor: "#101014"
+      profile: web.profile
+      webChannel: webChannelObject
+      settings.localContentCanAccessRemoteUrls: true
+      settings.localContentCanAccessFileUrls: true
+      settings.playbackRequiresUserGesture: false
+      onLoadingChanged: function(info) {
         components.window.setCursorVisibility(true);
-        mainWindow.popoutControlsVisible = true;
-        popoutControlsHide.restart();
-      }
-    }
-    HoverHandler {
-      id: popoutHover
-      onHoveredChanged: {
-        if (hovered) {
-          mainWindow.popoutControlsVisible = true;
-          popoutControlsHide.restart();
-        }
-      }
-    }
-    Timer {
-      id: popoutControlsHide
-      interval: 2800
-      running: detachedVideoWindow.visible
-      onTriggered: mainWindow.popoutControlsVisible = false
-    }
-    Rectangle {
-      visible: mainWindow.popoutControlsVisible
-      color: "#d9191a21"
-      border.color: "#50656a79"
-      border.width: 1
-      anchors.top: parent.top
-      anchors.right: parent.right
-      anchors.margins: 14
-      width: controlsRow.implicitWidth + 22
-      height: controlsRow.implicitHeight + 14
-      radius: 12
-      z: 200
-      Row {
-        id: controlsRow
-        anchors.centerIn: parent
-        spacing: 6
-        Button {
-          id: playPausePopout
-          text: mainWindow.videoPopoutPaused ? "▶" : "Ⅱ"
-          flat: true
-          palette.buttonText: "white"
-          background: Rectangle { color: parent.hovered ? "#53626e86" : "transparent"; radius: 7 }
-          onClicked: {
-            if (mainWindow.videoPopoutPaused) components.player.play();
-            else components.player.pause();
-            mainWindow.popoutControlsVisible = true;
-            popoutControlsHide.restart();
-          }
-        }
-        Button {
-          text: "↙ Andocken"
-          flat: true
-          palette.buttonText: "white"
-          background: Rectangle { color: parent.hovered ? "#53626e86" : "transparent"; radius: 7 }
-          onClicked: mainWindow.setVideoPopout(false)
-        }
-      }
-    }
-    onWidthChanged: video.update()
-    onHeightChanged: video.update()
-    onVisibilityChanged: {
-      if (visible) {
-        mainWindow.popoutControlsVisible = true;
-        popoutControlsHide.restart();
-        video.update();
       }
     }
   }
 
-  // Separate browsing surface: the playback WebEngineView stays alive and
-  // retains Jellyfin's video OSD while the user navigates this second view.
-  WebEngineView {
-    id: browseWeb
-    z: 110
-    anchors.fill: parent
-    visible: mainWindow.popoutBrowseEnabled
-    enabled: visible
-    url: mainWindow.popoutBrowseEnabled ? mainWindow.webUrl + "#/home" : ""
-    profile: web.profile
-    webChannel: webChannelObject
-    backgroundColor: "#101014"
-    settings.localContentCanAccessRemoteUrls: true
-    settings.localContentCanAccessFileUrls: true
-    settings.playbackRequiresUserGesture: false
-    onLoadingChanged: function(info) {
-      components.window.setCursorVisibility(true)
+  Timer {
+    id: controlsHide
+    interval: 3000
+    onTriggered: mainWindow.popoutControlsVisible = false
+  }
+  Rectangle {
+    z: 250
+    visible: mainWindow.videoPoppedOut && mainWindow.popoutControlsVisible
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.margins: 14
+    color: "#d9212229"
+    border.color: "#6670798b"
+    radius: 10
+    width: popoutActions.implicitWidth + 20
+    height: popoutActions.implicitHeight + 12
+    Row {
+      id: popoutActions
+      anchors.centerIn: parent
+      spacing: 5
+      Button {
+        text: mainWindow.videoPopoutPaused ? "▶" : "Ⅱ"
+        flat: true
+        palette.buttonText: "#ffffff"
+        background: Rectangle {
+          radius: 7
+          color: parent.hovered ? "#59627187" : "transparent"
+        }
+        onClicked: {
+          if (mainWindow.videoPopoutPaused) components.player.play();
+          else components.player.pause();
+          controlsHide.restart();
+        }
+      }
+      Button {
+        text: "↙ Andocken"
+        flat: true
+        palette.buttonText: "#ffffff"
+        background: Rectangle {
+          radius: 7
+          color: parent.hovered ? "#59627187" : "transparent"
+        }
+        onClicked: mainWindow.setVideoPopout(false)
+      }
     }
-    onNewWindowRequested: function(request) {
-      if (request.userInitiated && request.requestedUrl)
-        components.system.openExternalUrl(request.requestedUrl.toString());
+  }
+  MouseArea {
+    anchors.fill: parent
+    z: 240
+    visible: mainWindow.videoPoppedOut
+    acceptedButtons: Qt.NoButton
+    hoverEnabled: true
+    onPositionChanged: {
+      components.window.setCursorVisibility(true);
+      mainWindow.popoutControlsVisible = true;
+      controlsHide.restart();
     }
   }
 
@@ -397,9 +375,7 @@ Window
     objectName: "video"
     enabled: true
 
-    width: parent ? parent.width : mainWindow.width
-    height: parent ? parent.height : mainWindow.height
-    anchors.fill: parent
+    anchors.fill: mainWindow.contentItem
 
     Component.onCompleted: {
       console.log("MpvVideoItem size:", width, "x", height, "visible:", visible)
