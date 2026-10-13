@@ -58,12 +58,20 @@ Window
   Connections {
     target: components.player
     function onVideoPlaybackActive(active) {
-      mainWindow.videoActiveForPopout = active;
-      if (!active && mainWindow.videoPoppedOut)
-        mainWindow.setVideoPopout(false);
+      // A paused or buffering video is NOT a stopped video.
+      if (active) mainWindow.videoActiveForPopout = true;
     }
-    function onPlaying() { mainWindow.videoPopoutPaused = false; }
+    function onPlaying() {
+      mainWindow.videoActiveForPopout = true;
+      mainWindow.videoPopoutPaused = false;
+    }
     function onPaused() { mainWindow.videoPopoutPaused = true; }
+    function onPlaybackStopped(isNavigating) {
+      if (!isNavigating) {
+        mainWindow.videoActiveForPopout = false;
+        if (mainWindow.videoPoppedOut) mainWindow.setVideoPopout(false);
+      }
+    }
   }
 
   Window {
