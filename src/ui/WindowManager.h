@@ -52,6 +52,7 @@ public:
 
   // Window activation
   Q_INVOKABLE void raiseWindow();
+  Q_INVOKABLE void setVideoPopout(bool enable);
 
 public slots:
   void toggleFullscreen();
