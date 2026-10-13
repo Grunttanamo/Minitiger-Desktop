@@ -32,6 +32,17 @@ Window
   property bool videoActiveForPopout: false
   property bool videoPoppedOut: false
   property bool videoPopoutPaused: false
+  property bool popoutControlsVisible: true
+  property bool popoutButtonVisible: true
+
+  function prepareVideoSurface(target) {
+    // Stop old anchors before moving a Qt Quick renderer between windows.
+    // Re-establish them after the destination has a native surface.
+    video.anchors.fill = undefined;
+    video.parent = target;
+    video.anchors.fill = target;
+    video.update();
+  }
 
   // EXPERIMENTAL: transfer the existing MPV Quick item instead of creating
   // another decoder/player, so track selection and position remain intact.
@@ -42,14 +53,16 @@ Window
     if (enable) {
       if (!videoActiveForPopout)
         return;
-      videoPoppedOut = true;
-      video.parent = detachedVideoWindow.contentItem;
       detachedVideoWindow.show();
-      detachedVideoWindow.raise();
-      detachedVideoWindow.requestActivate();
+      videoPoppedOut = true;
+      Qt.callLater(function() {
+        prepareVideoSurface(detachedVideoWindow.contentItem);
+        detachedVideoWindow.raise();
+        detachedVideoWindow.requestActivate();
+      });
     } else {
-      video.parent = mainWindow.contentItem;
       videoPoppedOut = false;
+      prepareVideoSurface(mainWindow.contentItem);
       detachedVideoWindow.hide();
       mainWindow.raise();
     }
@@ -87,47 +100,128 @@ Window
       close.accepted = false;
       mainWindow.setVideoPopout(false);
     }
+    HoverHandler {
+      id: popoutHover
+      onHoveredChanged: {
+        if (hovered) {
+          mainWindow.popoutControlsVisible = true;
+          popoutControlsHide.restart();
+        }
+      }
+    }
+    Timer {
+      id: popoutControlsHide
+      interval: 2800
+      running: detachedVideoWindow.visible
+      onTriggered: mainWindow.popoutControlsVisible = false
+    }
     Rectangle {
-      color: "#15151b"
-      opacity: 0.92
+      visible: mainWindow.popoutControlsVisible
+      color: "#d9191a21"
+      border.color: "#50656a79"
+      border.width: 1
       anchors.top: parent.top
       anchors.right: parent.right
-      anchors.margins: 12
-      width: popoutControls.implicitWidth + 24
-      height: popoutControls.implicitHeight + 16
-      radius: 10
+      anchors.margins: 14
+      width: controlsRow.implicitWidth + 22
+      height: controlsRow.implicitHeight + 14
+      radius: 12
       z: 200
       Row {
-        id: popoutControls
+        id: controlsRow
         anchors.centerIn: parent
-        spacing: 12
+        spacing: 6
         Button {
-          text: mainWindow.videoPopoutPaused ? "▶" : "⏸"
+          id: playPausePopout
+          text: mainWindow.videoPopoutPaused ? "▶" : "Ⅱ"
+          flat: true
+          palette.buttonText: "white"
+          background: Rectangle { color: parent.hovered ? "#53626e86" : "transparent"; radius: 7 }
           onClicked: {
             if (mainWindow.videoPopoutPaused) components.player.play();
             else components.player.pause();
+            mainWindow.popoutControlsVisible = true;
+            popoutControlsHide.restart();
           }
-          ToolTip.visible: hovered
-          ToolTip.text: "Wiedergabe / Pause"
         }
         Button {
-          text: "↙ Zurück"
+          text: "↙ Andocken"
+          flat: true
+          palette.buttonText: "white"
+          background: Rectangle { color: parent.hovered ? "#53626e86" : "transparent"; radius: 7 }
           onClicked: mainWindow.setVideoPopout(false)
         }
       }
     }
+    onWidthChanged: video.update()
+    onHeightChanged: video.update()
+    onVisibilityChanged: {
+      if (visible) {
+        mainWindow.popoutControlsVisible = true;
+        popoutControlsHide.restart();
+        video.update();
+      }
+    }
   }
 
-  Button {
-    id: detachVideoButton
+  Timer {
+    id: detachControlHide
+    interval: 3500
+    onTriggered: mainWindow.popoutButtonVisible = false
+  }
+  Rectangle {
+    id: detachBackground
     z: 250
-    visible: mainWindow.videoActiveForPopout && !mainWindow.videoPoppedOut
-    text: "↗ Pop-out"
+    visible: mainWindow.videoActiveForPopout && !mainWindow.videoPoppedOut && mainWindow.popoutButtonVisible
+    color: "#d9191a21"
+    border.color: "#50656a79"
+    radius: 9
+    width: detachLabel.implicitWidth + 24
+    height: 34
     anchors.top: parent.top
     anchors.right: parent.right
-    anchors.topMargin: 70
-    anchors.rightMargin: 24
-    onClicked: mainWindow.setVideoPopout(true)
+    anchors.topMargin: 54
+    anchors.rightMargin: 22
+    Text {
+      id: detachLabel
+      text: "↗ Pop-out"
+      color: "#f9fafb"
+      anchors.centerIn: parent
+      font.pixelSize: 13
+      font.bold: true
+    }
+    MouseArea {
+      anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
+      onClicked: mainWindow.setVideoPopout(true)
+    }
+  }
+  Connections {
+    target: components.player
+    function onPlaying() {
+      mainWindow.popoutButtonVisible = true;
+      detachControlHide.restart();
+    }
+  }
+  // Separate browsing surface: the playback WebEngineView stays alive and
+  // retains Jellyfin's video OSD while the user navigates this second view.
+  WebEngineView {
+    id: browseWeb
+    z: 110
+    anchors.fill: parent
+    visible: mainWindow.videoPoppedOut
+    enabled: visible
+    url: mainWindow.videoPoppedOut ? mainWindow.webUrl + "#/home" : ""
+    profile: web.profile
+    webChannel: webChannelObject
+    backgroundColor: "#101014"
+    settings.localContentCanAccessRemoteUrls: true
+    settings.localContentCanAccessFileUrls: true
+    settings.playbackRequiresUserGesture: false
+    onNewWindowRequested: function(request) {
+      if (request.userInitiated && request.requestedUrl)
+        components.system.openExternalUrl(request.requestedUrl.toString());
+    }
   }
 
   Component.onCompleted: {
