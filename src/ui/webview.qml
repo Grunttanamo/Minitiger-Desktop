@@ -57,7 +57,7 @@ Window
       browseWindow.width = mainWindow.width;
       browseWindow.height = mainWindow.height;
       videoPoppedOut = true;
-      web.visible = false;
+      // Keep the original playback OSD and its complete controls alive.
       // Show the authenticated browsing window at the original dimensions.
       browseWindow.show();
       if (!popoutBrowserLoaded) {
@@ -78,7 +78,6 @@ Window
     } else {
       videoPoppedOut = false;
       browseWindow.hide();
-      web.visible = true;
       mainWindow.title = "Minitiger Desktop";
       mainWindow.x = savedMainGeometry.x;
       mainWindow.y = savedMainGeometry.y;
