@@ -201,7 +201,7 @@
                     }
 
                     // Navigate to OSD view to show playback screen
-                    if (this._currentPlayOptions.fullscreen) {
+                    if (this._currentPlayOptions.fullscreen && !window.__minitigerBrowseOnly) {
                         this.appRouter.showVideoOsd();
                         // Lower video dialog z-index so OSD can receive input
                         if (dlg) {
@@ -599,8 +599,14 @@
                 dlg.style.display = 'flex';
                 dlg.style.alignItems = 'center';
 
-                if (options.fullscreen) {
+                if (options.fullscreen && !window.__minitigerBrowseOnly) {
                     dlg.style.zIndex = 1000;
+                }
+                if (window.__minitigerBrowseOnly) {
+                    // Only the original native video window renders playback.
+                    // Do not cover the browsing window with a black dialog.
+                    dlg.style.display = 'none';
+                    dlg.style.pointerEvents = 'none';
                 }
 
                 const html = '';
@@ -615,7 +621,9 @@
                 }
 
                 document.body.insertBefore(dlg, document.body.firstChild);
-                this.setTransparency(2); // TRANSPARENCY_LEVEL.Full
+                if (!window.__minitigerBrowseOnly) {
+                    this.setTransparency(2); // TRANSPARENCY_LEVEL.Full
+                }
                 this._videoDialog = dlg;
                 const player = window.api.player;
                 if (!this._hasConnection) {
@@ -641,14 +649,14 @@
                     player.onMetaData.connect((meta) => console.log(`[MPV Signal] onMetaData: ${JSON.stringify(meta)}`));
                 }
 
-                if (options.fullscreen) {
+                if (options.fullscreen && !window.__minitigerBrowseOnly) {
                     // At this point, we must hide the scrollbar placeholder, so it's not being displayed while the item is being loaded
                     document.body.classList.add('hide-scroll');
                 }
                 return Promise.resolve();
             } else {
                 // we need to hide scrollbar when starting playback from page with animated background
-                if (options.fullscreen) {
+                if (options.fullscreen && !window.__minitigerBrowseOnly) {
                     document.body.classList.add('hide-scroll');
                 }
 
