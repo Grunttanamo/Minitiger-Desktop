@@ -239,8 +239,8 @@
       {
         "value": "normalize",
         "display_name": "Normalize",
-        "help": "Enable audio volume normalization.",
-        "default": true
+        "help": "Enable audio volume normalization. This can reduce perceived loudness, so Minitiger disables it by default.",
+        "default": false
       },
       {
         "value": "exclusive",
