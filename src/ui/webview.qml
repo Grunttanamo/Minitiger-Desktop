@@ -191,6 +191,14 @@ Window
         mainWindow.videoActiveForPopout = false;
         if (mainWindow.videoPoppedOut)
           mainWindow.setVideoPopout(false);
+        // Clear both stale Jellyfin mouseIdle and the native cursor state
+        // after playback returns from the video OSD to the library.
+        web.runJavaScript("document.body.classList.remove('mouseIdle')");
+        components.window.setCursorVisibility(true);
+        Qt.callLater(function() {
+          web.runJavaScript("document.body.classList.remove('mouseIdle')");
+          components.window.setCursorVisibility(true);
+        });
       }
     }
   }
