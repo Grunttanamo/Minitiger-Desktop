@@ -379,42 +379,58 @@ window.NativeShell.AppHost = {
 async function showSettingsModal() {
     await initCompleted;
 
-    const tooltipCSS = `
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            margin-left: 0.5rem;
-            font-size: 18px;
-            vertical-align: sub;
+    // Render tooltips in a body-level layer. The settings dialog scroll pane
+    // clips descendants and the legacy .tooltip selector conflicts with the
+    // Jellyfin UI stylesheet, making the help text inaccessible on hover.
+    const helpPopup = document.createElement('div');
+    helpPopup.className = 'minitiger-client-help-popup';
+    Object.assign(helpPopup.style, {
+        position: 'fixed',
+        zIndex: '2147483647',
+        pointerEvents: 'none',
+        display: 'none',
+        maxWidth: 'min(460px, 80vw)',
+        padding: '9px 12px',
+        border: '1px solid #647181',
+        borderRadius: '8px',
+        color: '#f7f7f7',
+        background: '#1e2028',
+        whiteSpace: 'pre-wrap',
+        fontSize: '13px',
+        lineHeight: '1.45',
+        boxShadow: '0 10px 32px #0008'
+    });
+    document.body.appendChild(helpPopup);
+    const hideHelp = () => { helpPopup.style.display = 'none'; };
+    const showHelp = (element, value) => {
+        if (!element.isConnected) return;
+        helpPopup.textContent = value;
+        helpPopup.style.display = 'block';
+        const rect = element.getBoundingClientRect();
+        const popupHeight = helpPopup.getBoundingClientRect().height;
+        const popupWidth = helpPopup.getBoundingClientRect().width;
+        let top = rect.bottom + 10;
+        if (top + popupHeight > window.innerHeight - 12) {
+            top = Math.max(12, rect.top - popupHeight - 10);
         }
-
-        .tooltip .tooltip-text {
-            visibility: hidden;
-            width: max-content;
-            max-width: 40em;
-            background-color: black;
-            color: white;
-            text-align: left;
-            position: absolute;
-            z-index: 1;
-            border-radius: 6px;
-            padding: 5px;
-            top: -4px;
-            left: 25px;
-            border: solid 1px grey;
-            font-size: 12px;
-        }
-
-        .tooltip:hover .tooltip-text {
-            visibility: visible;
-        }`;
-
-    var style = document.createElement('style')
-    style.innerText = tooltipCSS
-    document.head.appendChild(style)
+        helpPopup.style.top = top + 'px';
+        helpPopup.style.left = Math.min(
+            Math.max(12, rect.left),
+            Math.max(12, window.innerWidth - popupWidth - 12)
+        ) + 'px';
+    };
 
     const modalContainer = document.createElement("div");
     modalContainer.className = "dialogContainer";
+    const cleanupHelp = () => { hideHelp(); helpPopup.remove(); };
+    // Closing via the X, backdrop, or route change should never leave a
+    // help popup overlay on top of the client.
+    new MutationObserver((observer, source) => {
+        if (!modalContainer.isConnected) {
+            cleanupHelp();
+            source.disconnect();
+        }
+    }).observe(document.body, { childList: true });
     modalContainer.style.backgroundColor = "rgba(0,0,0,0.5)";
     modalContainer.addEventListener("click", e => {
         if (e.target == modalContainer) {
@@ -479,16 +495,21 @@ async function showSettingsModal() {
 
                 let helpElement;
                 if (setting.help) {
-                    helpElement = document.createElement("div");
-                    helpElement.className = "tooltip";
-                    const helpIcon = document.createElement("span");
-                    helpIcon.style.fontSize = "18px"
-                    helpIcon.className = "material-icons help_outline";
-                    helpElement.appendChild(helpIcon);
-                    const tooltipElement = document.createElement("span");
-                    tooltipElement.className = "tooltip-text";
-                    tooltipElement.innerText = setting.help;
-                    helpElement.appendChild(tooltipElement);
+                    helpElement = document.createElement('span');
+                    helpElement.className = 'minitiger-native-help';
+                    helpElement.tabIndex = 0;
+                    helpElement.setAttribute('role', 'button');
+                    helpElement.setAttribute('aria-label', 'Hilfe: ' + setting.help);
+                    helpElement.title = setting.help;
+                    helpElement.style.cssText =
+                        'display:inline-flex;align-items:center;justify-content:center;'
+                        + 'margin-left:8px;cursor:help;font-size:17px;'
+                        + 'vertical-align:middle;color:#d5d7dd;';
+                    helpElement.textContent = 'ⓘ';
+                    helpElement.addEventListener('mouseenter', () => showHelp(helpElement, setting.help));
+                    helpElement.addEventListener('mouseleave', hideHelp);
+                    helpElement.addEventListener('focus', () => showHelp(helpElement, setting.help));
+                    helpElement.addEventListener('blur', hideHelp);
                 }
 
                 if (setting.options) {
