@@ -72,6 +72,15 @@ Window
   // MpvAbstractItem between QQuickWindows invalidates its render targets,
   // producing blue frames, broken ASS subtitles and eventual GPU crashes.
   // Instead we turn the EXISTING window into the detachable video surface.
+  // The browsing view forwards new video selections to the existing
+  // Jellyfin playback owner. This avoids two independent NowPlaying reporters
+  // and updates the original video OSD title and playlist correctly.
+  function playItemFromBrowse(payload) {
+    if (!videoPoppedOut)
+      return;
+    web.runJavaScript("window.__minitigerPlayFromBrowse(" + JSON.stringify(payload) + ")");
+  }
+
   function setVideoPopout(enable) {
     if (enable === videoPoppedOut || popoutTransitioning)
       return;
