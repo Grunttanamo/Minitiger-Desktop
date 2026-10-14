@@ -165,6 +165,11 @@ void WindowManager::initializeWindow(QQuickWindow* window)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+bool WindowManager::isVideoPoppedOut() const
+{
+  return m_window && m_window->property("videoPoppedOut").toBool();
+}
+
 void WindowManager::setVideoPopout(bool enable)
 {
   if (m_window)
