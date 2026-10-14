@@ -51,9 +51,10 @@ public:
 
   // Native preview uses a dedicated MPV decoder; never PlayerComponent.
   Q_INVOKABLE bool nativeTrailerPreviewAvailable() const;
-  Q_INVOKABLE bool nativeTrailerPreviewPlay(const QString& mediaUrl, int x, int y,
+  Q_INVOKABLE bool nativeTrailerPreviewPlay(const QString& mediaUrl, bool loop, int x, int y,
                                             int width, int height, bool muted);
   Q_INVOKABLE void nativeTrailerPreviewGeometry(int x, int y, int width, int height);
+  Q_INVOKABLE bool nativeTrailerPreviewEnded() const;
   Q_INVOKABLE void nativeTrailerPreviewMute(bool muted);
   Q_INVOKABLE void nativeTrailerPreviewStop();
 
