@@ -21,6 +21,10 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QPointer>
+#include <QQuickWindow>
+#include <QQuickItem>
+#include <QUrl>
+#include "Globals.h"
 #include <functional>
 
 #include <QtWebEngineCore/qtwebenginecoreglobal.h>
@@ -921,6 +925,86 @@ bool SystemComponent::applyMinitigerUpdate(
 
   return true;
 #endif
+}
+
+// A single dedicated MPV surface serves both Home banners and preview cards.
+// No reference to PlayerComponent or Jellyfin playback reporting is created.
+namespace {
+QQuickItem* previewSurface()
+{
+  auto* window = Globals::MainWindow();
+  return window ? window->findChild<QQuickItem*>("minitigerNativeTrailerPreview") : nullptr;
+}
+bool validPreviewRect(int x, int y, int w, int h)
+{
+  return x >= 0 && y >= 0 && w > 0 && h > 0 && w <= 8192 && h <= 8192;
+}
+void setPreviewBounds(QQuickItem* item, int x, int y, int w, int h)
+{
+  item->setX(x);
+  item->setY(y);
+  item->setWidth(w);
+  item->setHeight(h);
+}
+}
+
+bool SystemComponent::nativeTrailerPreviewAvailable() const
+{
+  return previewSurface() != nullptr;
+}
+
+bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl,
+                                                int x, int y, int width, int height, bool muted)
+{
+  auto* item = previewSurface();
+  const QUrl url(mediaUrl);
+  if (!item || !validPreviewRect(x, y, width, height)
+      || !url.isValid() || (url.scheme() != "http" && url.scheme() != "https"))
+    return false;
+
+  // Never allow unbounded or out-of-window native video overlays.
+  auto* window = Globals::MainWindow();
+  if (!window || x + width > window->width() || y + height > window->height())
+    return false;
+  setPreviewBounds(item, x, y, width, height);
+  item->setVisible(true);
+  QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
+  bool success = false;
+  const bool invoked = QMetaObject::invokeMethod(item, "playPreview", Qt::DirectConnection,
+                                                  Q_RETURN_ARG(bool, success),
+                                                  Q_ARG(QString, mediaUrl));
+  if (!invoked || !success)
+    item->setVisible(false);
+  return invoked && success;
+}
+
+void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int height)
+{
+  auto* item = previewSurface();
+  auto* window = Globals::MainWindow();
+  if (!item || !item->isVisible() || !window)
+    return;
+  if (!validPreviewRect(x, y, width, height) || x + width > window->width() || y + height > window->height())
+  {
+    nativeTrailerPreviewStop();
+    return;
+  }
+  setPreviewBounds(item, x, y, width, height);
+}
+
+void SystemComponent::nativeTrailerPreviewMute(bool muted)
+{
+  if (auto* item = previewSurface())
+    QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
+}
+
+void SystemComponent::nativeTrailerPreviewStop()
+{
+  if (auto* item = previewSurface())
+  {
+    item->setVisible(false);
+    QMetaObject::invokeMethod(item, "stopPreview");
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
