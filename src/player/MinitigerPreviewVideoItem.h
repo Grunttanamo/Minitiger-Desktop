@@ -3,7 +3,7 @@
 #include <QString>
 
 // Standalone MPV surface. This class must never share the normal PlayerComponent.
-class MinitigerPreviewVideoItem final : public MpvAbstractItem
+class MinitigerPreviewVideoItem : public MpvAbstractItem
 {
     Q_OBJECT
     Q_PROPERTY(bool readyForPreview READ readyForPreview NOTIFY readyForPreviewChanged)
