@@ -34,6 +34,7 @@ public:
 
   // Always on top
   Q_INVOKABLE void setAlwaysOnTop(bool enable);
+  Q_INVOKABLE void setVideoPopoutTopmost(bool enable);
   Q_INVOKABLE bool isAlwaysOnTop() const;
   Q_INVOKABLE void toggleAlwaysOnTop();
 
