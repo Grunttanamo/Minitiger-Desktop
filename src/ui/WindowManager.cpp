@@ -15,6 +15,8 @@
 #include <QScreen>
 #include <QDebug>
 #include <QQmlProperty>
+#include <QJsonDocument>
+#include <QJsonParseError>
 
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
@@ -168,6 +170,35 @@ void WindowManager::initializeWindow(QQuickWindow* window)
 bool WindowManager::isVideoPoppedOut() const
 {
   return m_window && m_window->property("videoPoppedOut").toBool();
+}
+
+int WindowManager::currentNativeWindowState() const
+{
+  if (!m_window)
+    return static_cast<int>(Qt::WindowNoState);
+  return static_cast<int>(m_window->windowState());
+}
+
+bool WindowManager::playInPrimaryWindow(const QString& playOptionsJson)
+{
+  if (!m_window || !isVideoPoppedOut() || playOptionsJson.size() > 524288)
+    return false;
+
+  QJsonParseError parseError;
+  const QJsonDocument doc = QJsonDocument::fromJson(playOptionsJson.toUtf8(), &parseError);
+  if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+    return false;
+
+  const auto opts = doc.object();
+  // Only route item playback requests, never arbitrary JS payloads.
+  if (!opts.contains("items") && !opts.contains("ids"))
+    return false;
+
+  // The existing QML web view keeps Jellyfin playback state, reporting and
+  // OSD ownership. This switches items there, not from another web session.
+  return QMetaObject::invokeMethod(
+      m_window, "playItemFromBrowse", Qt::QueuedConnection,
+      Q_ARG(QVariant, QVariant(playOptionsJson)));
 }
 
 void WindowManager::setVideoPopout(bool enable)
