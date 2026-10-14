@@ -248,6 +248,24 @@ void SettingsComponent::load()
 
   loadConf(ProfileManager::activeProfile().dataDir("jellyfin-desktop.conf"), false);
   loadConf(ProfileManager::activeProfile().dataDir("storage.json"), true);
+
+  // One-time per-profile upgrade: older builds shipped with Normalize=true,
+  // reducing maximum perceived loudness. Change it once, not at every launch,
+  // so users may explicitly enable it again in Client Settings later.
+  const QString audioMigrationMarker =
+      ProfileManager::activeProfile().dataDir("minitiger-audio-normalize-migrated-v1");
+  if (!QFile::exists(audioMigrationMarker))
+  {
+    if (value(SETTINGS_SECTION_AUDIO, "normalize").toBool())
+      setValue(SETTINGS_SECTION_AUDIO, "normalize", false);
+
+    QSaveFile migrationFile(audioMigrationMarker);
+    if (migrationFile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+      migrationFile.write("1\\n");
+      migrationFile.commit();
+    }
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
