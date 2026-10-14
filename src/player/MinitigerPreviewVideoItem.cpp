@@ -2,6 +2,7 @@
 #include <MpvController>
 #include <QStringList>
 #include <QUrl>
+#include <mpv/client.h>
 
 MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
     : MpvAbstractItem(parent)
@@ -20,21 +21,31 @@ MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
         decoder->setProperty("osd-level", 0);
         decoder->setProperty("ytdl", false);
         decoder->setProperty("hwdec", "auto-safe");
-        decoder->setProperty("loop-file", "inf");
+        decoder->setProperty("loop-file", "no");
+        decoder->setProperty("keep-open", "yes");
         m_ready = true;
         emit readyForPreviewChanged();
     });
 }
 
-bool MinitigerPreviewVideoItem::playPreview(const QString& url)
+bool MinitigerPreviewVideoItem::playPreview(const QString& url, bool loop)
 {
     if (!m_ready || !mpvController())
         return false;
     const QUrl parsed(url);
     if (!parsed.isValid() || (parsed.scheme() != "https" && parsed.scheme() != "http"))
         return false;
+    mpvController()->setProperty("loop-file", loop ? "inf" : "no");
     mpvController()->command(QStringList() << "loadfile" << url << "replace");
     return true;
+}
+
+bool MinitigerPreviewVideoItem::previewEnded() const
+{
+    auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
+    if (!controller) return false;
+    int ended = 0;
+    return mpv_get_property(controller->mpv(), "eof-reached", MPV_FORMAT_FLAG, &ended) >= 0 && ended;
 }
 
 void MinitigerPreviewVideoItem::stopPreview()
