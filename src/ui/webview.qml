@@ -152,6 +152,11 @@ Window
       settings.playbackRequiresUserGesture: false
       onLoadingChanged: function(info) {
         components.window.setCursorVisibility(true);
+        if (info.status === WebEngineView.LoadSucceededStatus) {
+          // The browsing view shares the native player with the video window
+          // but must not navigate to the fullscreen video OSD itself.
+          browseWeb.runJavaScript("window.__minitigerBrowseOnly = true");
+        }
       }
     }
   }
