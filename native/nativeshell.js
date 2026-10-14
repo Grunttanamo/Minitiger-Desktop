@@ -332,16 +332,31 @@ window.initCompleted = new Promise(async (resolve) => {
         }
     );
 
-    // Sync cursor visibility with jellyfin-web's mouse idle state
+    // Only the actually visible video OSD may hide the cursor. Previously
+    // mouseIdle stayed on the body after leaving playback, so native Qt kept
+    // hiding the mouse on Home (and across the separate browse-only window).
+    const syncVideoCursor = () => {
+        const hide = window.__minitigerVideoOsdActive === true
+            && window.__minitigerBrowseOnly !== true
+            && document.body.classList.contains('mouseIdle');
+        window.api?.window?.setCursorVisibility?.(!hide);
+    };
     const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            if (mutation.attributeName === 'class') {
-                const isIdle = document.body.classList.contains('mouseIdle');
-                window.api.window.setCursorVisibility(!isIdle);
-            }
+        if (mutations.some(mutation => mutation.attributeName === 'class')) {
+            syncVideoCursor();
         }
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    // Recovery on first mouse movement after navigation, even if Jellyfin
+    // forgot to clear its class before showing a library or Home page.
+    document.addEventListener('pointermove', () => {
+        if (window.__minitigerVideoOsdActive !== true
+            && document.body.classList.contains('mouseIdle')) {
+            document.body.classList.remove('mouseIdle');
+            syncVideoCursor();
+        }
+    }, { capture: true, passive: true });
 
     resolve();
 });
