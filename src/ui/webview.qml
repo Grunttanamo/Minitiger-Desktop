@@ -38,6 +38,30 @@ Window
   property bool popoutBrowseEnabled: false
   property rect savedMainGeometry: Qt.rect(0, 0, 1280, 720)
   property int savedMainVisibility: Window.Windowed
+  property int savedNativeWindowState: 0
+  property bool resizingVideoWindow: false
+
+  Timer {
+    id: finishVideoResize
+    interval: 260
+    repeat: false
+    onTriggered: {
+      mainWindow.resizingVideoWindow = false;
+      web.runJavaScript("document.documentElement.classList.remove('minitiger-popout-resizing')");
+    }
+  }
+
+  function noteVideoWindowResize() {
+    if (!videoPoppedOut || popoutTransitioning || restoringMainWindow)
+      return;
+    if (!resizingVideoWindow) {
+      resizingVideoWindow = true;
+      web.runJavaScript("document.documentElement.classList.add('minitiger-popout-resizing')");
+    }
+    finishVideoResize.restart();
+  }
+  onWidthChanged: mainWindow.noteVideoWindowResize()
+  onHeightChanged: mainWindow.noteVideoWindowResize()
   property bool popoutBrowserLoaded: false
   property bool restoringMainWindow: false
 
@@ -56,10 +80,13 @@ Window
     onTriggered: {
       if (!mainWindow.restoringMainWindow)
         return;
-      if (mainWindow.savedMainVisibility === Window.Maximized)
-        mainWindow.showMaximized();
-      else if (mainWindow.savedMainVisibility === Window.FullScreen)
+      // Restore the native Qt window STATE, not only QML's visibility.
+      // On Windows a maximized/borderless main window can temporarily
+      // report Windowed visibility during Win32 pop-out transitions.
+      if ((mainWindow.savedNativeWindowState & 4) !== 0)
         mainWindow.showFullScreen();
+      else if ((mainWindow.savedNativeWindowState & 2) !== 0)
+        mainWindow.showMaximized();
       else
         mainWindow.showNormal();
       mainWindow.raise();
@@ -89,6 +116,7 @@ Window
 
     popoutTransitioning = true;
     if (enable) {
+      savedNativeWindowState = components.window.currentNativeWindowState();
       savedMainVisibility = mainWindow.visibility;
       savedMainGeometry = Qt.rect(mainWindow.x, mainWindow.y, mainWindow.width, mainWindow.height);
       browseWindow.x = savedMainGeometry.x;
@@ -98,10 +126,10 @@ Window
       videoPoppedOut = true;
       // Keep the original video/OSD scene and its renderer untouched.
       // The browsing window must retain the previous size/placement.
-      if (savedMainVisibility === Window.Maximized)
-        browseWindow.showMaximized();
-      else if (savedMainVisibility === Window.FullScreen)
+      if ((savedNativeWindowState & 4) !== 0)
         browseWindow.showFullScreen();
+      else if ((savedNativeWindowState & 2) !== 0)
+        browseWindow.showMaximized();
       else
         browseWindow.show();
       if (!popoutBrowserLoaded) {
@@ -124,6 +152,9 @@ Window
       // The web OSD owns player controls and their auto-hide timer.
     } else {
       restoringMainWindow = true;
+      finishVideoResize.stop();
+      resizingVideoWindow = false;
+      web.runJavaScript("document.documentElement.classList.remove('minitiger-popout-resizing')");
       videoPoppedOut = false;
       components.window.setVideoPopoutTopmost(false);
       browseWindow.hide();
