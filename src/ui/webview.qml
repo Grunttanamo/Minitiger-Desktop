@@ -37,6 +37,7 @@ Window
   property bool popoutTransitioning: false
   property bool popoutBrowseEnabled: false
   property rect savedMainGeometry: Qt.rect(0, 0, 1280, 720)
+  property int savedMainVisibility: Window.Windowed
   property bool popoutBrowserLoaded: false
 
   // MPV stays in the original scene graph for its entire lifetime. Moving an
@@ -51,38 +52,57 @@ Window
 
     popoutTransitioning = true;
     if (enable) {
+      savedMainVisibility = mainWindow.visibility;
       savedMainGeometry = Qt.rect(mainWindow.x, mainWindow.y, mainWindow.width, mainWindow.height);
-      browseWindow.x = mainWindow.x;
-      browseWindow.y = mainWindow.y;
-      browseWindow.width = mainWindow.width;
-      browseWindow.height = mainWindow.height;
+      browseWindow.x = savedMainGeometry.x;
+      browseWindow.y = savedMainGeometry.y;
+      browseWindow.width = savedMainGeometry.width;
+      browseWindow.height = savedMainGeometry.height;
       videoPoppedOut = true;
-      // Keep the original playback OSD and its complete controls alive.
-      // Show the authenticated browsing window at the original dimensions.
-      browseWindow.show();
+      // Keep the original video/OSD scene and its renderer untouched.
+      // The browsing window must retain the previous size/placement.
+      if (savedMainVisibility === Window.Maximized)
+        browseWindow.showMaximized();
+      else if (savedMainVisibility === Window.FullScreen)
+        browseWindow.showFullScreen();
+      else
+        browseWindow.show();
       if (!popoutBrowserLoaded) {
         popoutBrowserLoaded = true;
         var current = web.url.toString();
         var base = current.split("#")[0];
         browseWeb.url = base + "#/home";
       }
+      // Preserve the original window's maximize/fullscreen state separately.
+      mainWindow.showNormal();
       mainWindow.width = 960;
       mainWindow.height = 540;
       mainWindow.x = savedMainGeometry.x + 60;
       mainWindow.y = savedMainGeometry.y + 60;
       mainWindow.title = "Minitiger – Video-Pop-out";
-      browseWindow.raise();
-      browseWindow.requestActivate();
+      // The video remains foreground, even when another application focuses.
+      components.window.setVideoPopoutTopmost(true);
+      mainWindow.raise();
+      mainWindow.requestActivate();
       popoutControlsVisible = true;
       controlsHide.restart();
     } else {
       videoPoppedOut = false;
+      components.window.setVideoPopoutTopmost(false);
       browseWindow.hide();
       mainWindow.title = "Minitiger Desktop";
+      mainWindow.showNormal();
       mainWindow.x = savedMainGeometry.x;
       mainWindow.y = savedMainGeometry.y;
       mainWindow.width = savedMainGeometry.width;
       mainWindow.height = savedMainGeometry.height;
+      if (savedMainVisibility === Window.Maximized)
+        mainWindow.showMaximized();
+      else if (savedMainVisibility === Window.FullScreen)
+        mainWindow.showFullScreen();
+      // Clear the original OSD's previous idle state when re-docking,
+      // otherwise its invisible-cursor state can survive focus changes.
+      web.runJavaScript("document.body.classList.remove('mouseIdle')");
       mainWindow.raise();
       mainWindow.requestActivate();
     }
@@ -182,18 +202,8 @@ Window
       }
     }
   }
-  MouseArea {
-    anchors.fill: parent
-    z: 240
-    visible: mainWindow.videoPoppedOut
-    acceptedButtons: Qt.NoButton
-    hoverEnabled: true
-    onPositionChanged: {
-      components.window.setCursorVisibility(true);
-      mainWindow.popoutControlsVisible = true;
-      controlsHide.restart();
-    }
-  }
+  // Do not overlay an invisible MouseArea over the web video OSD:
+  // it consumes pointer movement that Jellyfin needs to reveal controls.
 
   Component.onCompleted: {
     if (components && components.settings) {
