@@ -19,6 +19,10 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 WindowManager& WindowManager::Get()
@@ -166,6 +170,27 @@ void WindowManager::setVideoPopout(bool enable)
   if (m_window)
     QMetaObject::invokeMethod(m_window, "setVideoPopout", Qt::QueuedConnection,
                               Q_ARG(QVariant, QVariant(enable)));
+}
+
+void WindowManager::setVideoPopoutTopmost(bool enable)
+{
+  if (!m_window)
+    return;
+#ifdef Q_OS_WIN
+  // Changing the Qt window flags can recreate the OpenGL surface and
+  // invalidate MpvQt textures. Set only native HWND stacking order.
+  HWND handle = reinterpret_cast<HWND>(m_window->winId());
+  if (handle)
+  {
+    const bool respectExistingTopmost = isAlwaysOnTop();
+    SetWindowPos(handle, (enable || respectExistingTopmost) ? HWND_TOPMOST : HWND_NOTOPMOST,
+                 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+  }
+#else
+  setAlwaysOnTop(enable || SettingsComponent::Get().value(SETTINGS_SECTION_MAIN,
+                                                          "alwaysOnTop").toBool());
+#endif
 }
 
 void WindowManager::setAlwaysOnTop(bool enable)
@@ -617,7 +642,7 @@ QString WindowManager::screenNameKey() const { return "ScreenName"; }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::saveWindowSize()
 {
-  if (!m_window)
+  if (!m_window || m_window->property("videoPoppedOut").toBool())
     return;
 
   SettingsSection* section = SettingsComponent::Get().getSection(SETTINGS_SECTION_STATE);
@@ -692,7 +717,7 @@ void WindowManager::saveWindowSize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::saveWindowPosition()
 {
-  if (!m_window)
+  if (!m_window || m_window->property("videoPoppedOut").toBool())
     return;
 
   // no-op on Wayland
