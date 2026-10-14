@@ -291,6 +291,12 @@ void WindowManager::toggleFullscreen()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::setCursorVisibility(bool visible)
 {
+  // The main OSD may report "mouseIdle" while the second WebEngine browsing
+  // window is focused. Never let that stale state hide the system cursor
+  // across both windows during a pop-out session.
+  if (m_window && m_window->property("videoPoppedOut").toBool())
+    visible = true;
+
   if (visible == m_cursorVisible)
     return;
 
