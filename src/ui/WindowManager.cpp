@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QQmlProperty>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QJsonParseError>
 
 #include <QOpenGLContext>
