@@ -49,6 +49,14 @@ public:
   static QString extractBaseUrl(const QString& url);
   void resolveUrl(const QString& url, std::function<void(const QString&)> callback);
 
+  // Native preview uses a dedicated MPV decoder; never PlayerComponent.
+  Q_INVOKABLE bool nativeTrailerPreviewAvailable() const;
+  Q_INVOKABLE bool nativeTrailerPreviewPlay(const QString& mediaUrl, int x, int y,
+                                            int width, int height, bool muted);
+  Q_INVOKABLE void nativeTrailerPreviewGeometry(int x, int y, int width, int height);
+  Q_INVOKABLE void nativeTrailerPreviewMute(bool muted);
+  Q_INVOKABLE void nativeTrailerPreviewStop();
+
   Q_INVOKABLE QString getUserAgent();
 
   Q_INVOKABLE QString debugInformation();
