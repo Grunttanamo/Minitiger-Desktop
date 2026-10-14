@@ -436,7 +436,8 @@ Window
   MinitigerPreviewVideoItem {
     id: nativeTrailerPreview
     objectName: "minitigerNativeTrailerPreview"
-    z: 105
+    // Behind the transparent WebEngine surface so HTML controls remain clickable.
+    z: 99
     visible: false
     enabled: false
     x: 0
