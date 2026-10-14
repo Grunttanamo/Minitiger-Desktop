@@ -296,11 +296,23 @@ void WindowManager::toggleFullscreen()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::setCursorVisibility(bool visible)
 {
-  // The main OSD may report "mouseIdle" while the second WebEngine browsing
-  // window is focused. Never let that stale state hide the system cursor
-  // across both windows during a pop-out session.
-  if (m_window && m_window->property("videoPoppedOut").toBool())
+  // The video OSD and browsing WebEngine independently report cursor-idle.
+  // A hidden global Qt override must never escape either view after docking.
+  const bool popoutTransition = m_window &&
+      (m_window->property("videoPoppedOut").toBool() ||
+       m_window->property("restoringMainWindow").toBool());
+
+  if (popoutTransition)
     visible = true;
+
+  if (visible)
+  {
+    // Recover a stale BlankCursor override even when our cached flag already
+    // says visible (Qt can retain an override after focus changes).
+    for (int i = 0; i < 8 && qApp->overrideCursor() &&
+         qApp->overrideCursor()->shape() == Qt::BlankCursor; ++i)
+      qApp->restoreOverrideCursor();
+  }
 
   if (visible == m_cursorVisible)
     return;
@@ -653,7 +665,8 @@ QString WindowManager::screenNameKey() const { return "ScreenName"; }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::saveWindowSize()
 {
-  if (!m_window || m_window->property("videoPoppedOut").toBool())
+  if (!m_window || m_window->property("videoPoppedOut").toBool() ||
+      m_window->property("restoringMainWindow").toBool())
     return;
 
   SettingsSection* section = SettingsComponent::Get().getSection(SETTINGS_SECTION_STATE);
