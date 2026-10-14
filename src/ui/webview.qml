@@ -432,6 +432,19 @@ Window
     onHeightChanged: console.log("MpvVideoItem height changed:", height)
   }
 
+  // Separate decoder for both banner and expanded preview. No PlayerComponent.
+  MinitigerPreviewVideoItem {
+    id: nativeTrailerPreview
+    objectName: "minitigerNativeTrailerPreview"
+    z: 105
+    visible: false
+    enabled: false
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  }
+
   // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
   // single-file selection on Windows even when the HTML input uses
   // multiple. Handle only true multi-file requests ourselves and leave all
