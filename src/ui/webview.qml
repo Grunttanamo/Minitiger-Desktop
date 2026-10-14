@@ -39,6 +39,34 @@ Window
   property rect savedMainGeometry: Qt.rect(0, 0, 1280, 720)
   property int savedMainVisibility: Window.Windowed
   property bool popoutBrowserLoaded: false
+  property bool restoringMainWindow: false
+
+  // Do not write temporary 960x540 pop-out dimensions to persistent settings.
+  Timer {
+    id: finishWindowRestore
+    interval: 1100
+    repeat: false
+    onTriggered: mainWindow.restoringMainWindow = false
+  }
+
+  Timer {
+    id: restoreNativeWindowMode
+    interval: 150
+    repeat: false
+    onTriggered: {
+      if (!mainWindow.restoringMainWindow)
+        return;
+      if (mainWindow.savedMainVisibility === Window.Maximized)
+        mainWindow.showMaximized();
+      else if (mainWindow.savedMainVisibility === Window.FullScreen)
+        mainWindow.showFullScreen();
+      else
+        mainWindow.showNormal();
+      mainWindow.raise();
+      mainWindow.requestActivate();
+      components.window.setCursorVisibility(true);
+    }
+  }
 
   // MPV stays in the original scene graph for its entire lifetime. Moving an
   // MpvAbstractItem between QQuickWindows invalidates its render targets,
@@ -84,9 +112,9 @@ Window
       components.window.setVideoPopoutTopmost(true);
       mainWindow.raise();
       mainWindow.requestActivate();
-      popoutControlsVisible = true;
-      controlsHide.restart();
+      // The web OSD owns player controls and their auto-hide timer.
     } else {
+      restoringMainWindow = true;
       videoPoppedOut = false;
       components.window.setVideoPopoutTopmost(false);
       browseWindow.hide();
@@ -96,10 +124,10 @@ Window
       mainWindow.y = savedMainGeometry.y;
       mainWindow.width = savedMainGeometry.width;
       mainWindow.height = savedMainGeometry.height;
-      if (savedMainVisibility === Window.Maximized)
-        mainWindow.showMaximized();
-      else if (savedMainVisibility === Window.FullScreen)
-        mainWindow.showFullScreen();
+      // Windows completes showNormal asynchronously. Restoring maximized or
+      // borderless/fullscreen in the same GUI tick is often silently lost.
+      restoreNativeWindowMode.restart();
+      finishWindowRestore.restart();
       // Clear the original OSD's previous idle state when re-docking,
       // otherwise its invisible-cursor state can survive focus changes.
       web.runJavaScript("document.body.classList.remove('mouseIdle')");
@@ -140,6 +168,10 @@ Window
       close.accepted = false;
       mainWindow.setVideoPopout(false);
     }
+    onActiveChanged: {
+      if (active)
+        components.window.setCursorVisibility(true);
+    }
 
     WebEngineView {
       id: browseWeb
@@ -161,54 +193,8 @@ Window
     }
   }
 
-  Timer {
-    id: controlsHide
-    interval: 3000
-    onTriggered: mainWindow.popoutControlsVisible = false
-  }
-  Rectangle {
-    z: 250
-    visible: mainWindow.videoPoppedOut && mainWindow.popoutControlsVisible
-    anchors.top: parent.top
-    anchors.right: parent.right
-    anchors.margins: 14
-    color: "#d9212229"
-    border.color: "#6670798b"
-    radius: 10
-    width: popoutActions.implicitWidth + 20
-    height: popoutActions.implicitHeight + 12
-    Row {
-      id: popoutActions
-      anchors.centerIn: parent
-      spacing: 5
-      Button {
-        text: mainWindow.videoPopoutPaused ? "▶" : "Ⅱ"
-        flat: true
-        palette.buttonText: "#ffffff"
-        background: Rectangle {
-          radius: 7
-          color: parent.hovered ? "#59627187" : "transparent"
-        }
-        onClicked: {
-          if (mainWindow.videoPopoutPaused) components.player.play();
-          else components.player.pause();
-          controlsHide.restart();
-        }
-      }
-      Button {
-        text: "↙ Andocken"
-        flat: true
-        palette.buttonText: "#ffffff"
-        background: Rectangle {
-          radius: 7
-          color: parent.hovered ? "#59627187" : "transparent"
-        }
-        onClicked: mainWindow.setVideoPopout(false)
-      }
-    }
-  }
-  // Do not overlay an invisible MouseArea over the web video OSD:
-  // it consumes pointer movement that Jellyfin needs to reveal controls.
+  // Pop-out / Andocken lives in Jellyfin's existing bottom-right
+  // video OSD. Never overlay the player with separate Qt buttons.
 
   Component.onCompleted: {
     if (components && components.settings) {
