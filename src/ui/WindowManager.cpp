@@ -328,36 +328,50 @@ void WindowManager::toggleFullscreen()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::setCursorVisibility(bool visible)
 {
-  // The video OSD and browsing WebEngine independently report cursor-idle.
-  // A hidden global Qt override must never escape either view after docking.
-  const bool popoutTransition = m_window &&
-      (m_window->property("videoPoppedOut").toBool() ||
-       m_window->property("restoringMainWindow").toBool());
+  // Only the actual video OSD may hide the cursor. Once playback ends (or
+  // while the window is detached/restoring) an old mouseIdle mutation must
+  // never hide the pointer again over the library or another app.
+  const bool canHideForVideo = m_window &&
+      m_window->property("videoActiveForPopout").toBool() &&
+      !m_window->property("videoPoppedOut").toBool() &&
+      !m_window->property("restoringMainWindow").toBool();
 
-  if (popoutTransition)
+  if (!visible && !canHideForVideo)
     visible = true;
 
+  // Earlier builds used a process-wide override stack. Drain only BlankCursor
+  // overrides, leaving other intentional Qt overrides untouched.
   if (visible)
   {
-    // Recover a stale BlankCursor override even when our cached flag already
-    // says visible (Qt can retain an override after focus changes).
-    for (int i = 0; i < 8 && qApp->overrideCursor() &&
+    for (int i = 0; i < 16 && qApp->overrideCursor() &&
          qApp->overrideCursor()->shape() == Qt::BlankCursor; ++i)
       qApp->restoreOverrideCursor();
   }
 
-  if (visible == m_cursorVisible)
-    return;
+  // Never use QGuiApplication::setOverrideCursor for the video OSD on Windows:
+  // a hidden process-wide override leaks into the independent browse window
+  // and can survive playback navigation. Keep it scoped to the video window.
+#ifdef Q_OS_WIN
+  if (m_window)
+  {
+    if (visible)
+      m_window->unsetCursor();
+    else
+      m_window->setCursor(QCursor(Qt::BlankCursor));
+  }
+#else
+  if (visible != m_cursorVisible)
+  {
+    if (visible)
+      qApp->restoreOverrideCursor();
+    else
+      qApp->setOverrideCursor(QCursor(Qt::BlankCursor));
+  }
+#endif
 
   m_cursorVisible = visible;
 
-  if (visible)
-    qApp->restoreOverrideCursor();
-  else
-    qApp->setOverrideCursor(QCursor(Qt::BlankCursor));
-
 #ifdef Q_OS_MAC
-  // Only apply macOS global cursor hiding when cursor is inside window
   if (m_cursorInsideWindow)
     OSXUtils::SetCursorVisible(visible);
 #endif
