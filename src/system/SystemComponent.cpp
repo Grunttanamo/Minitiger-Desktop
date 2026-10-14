@@ -953,7 +953,7 @@ bool SystemComponent::nativeTrailerPreviewAvailable() const
   return previewSurface() != nullptr;
 }
 
-bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl,
+bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loop,
                                                 int x, int y, int width, int height, bool muted)
 {
   auto* item = previewSurface();
@@ -972,7 +972,7 @@ bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl,
   bool success = false;
   const bool invoked = QMetaObject::invokeMethod(item, "playPreview", Qt::DirectConnection,
                                                   Q_RETURN_ARG(bool, success),
-                                                  Q_ARG(QString, mediaUrl));
+                                                  Q_ARG(QString, mediaUrl), Q_ARG(bool, loop));
   if (!invoked || !success)
     item->setVisible(false);
   return invoked && success;
@@ -990,6 +990,15 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
     return;
   }
   setPreviewBounds(item, x, y, width, height);
+}
+
+bool SystemComponent::nativeTrailerPreviewEnded() const
+{
+  auto* item = previewSurface();
+  if (!item || !item->isVisible()) return false;
+  bool ended = false;
+  QMetaObject::invokeMethod(item, "previewEnded", Qt::DirectConnection, Q_RETURN_ARG(bool, ended));
+  return ended;
 }
 
 void SystemComponent::nativeTrailerPreviewMute(bool muted)
