@@ -55,6 +55,11 @@ public:
   Q_INVOKABLE void raiseWindow();
   Q_INVOKABLE void setVideoPopout(bool enable);
   Q_INVOKABLE bool isVideoPoppedOut() const;
+  // Route new playback from the browse-only WebEngine to the original owner
+  // of the Jellyfin playback session. The second view must not report its own
+  // independent NowPlaying item for the same native player.
+  Q_INVOKABLE bool playInPrimaryWindow(const QString& playOptionsJson);
+  Q_INVOKABLE int currentNativeWindowState() const;
 
 public slots:
   void toggleFullscreen();
