@@ -409,6 +409,13 @@ void WindowManager::raiseWindow()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::onVisibilityChanged(QWindow::Visibility visibility)
 {
+  // The video pop-out temporarily transforms this QQuickWindow to Windowed.
+  // Do not persist that as the user's fullscreen/maximized preference or
+  // overwrite m_previousVisibility during detach and re-dock.
+  if (m_window && (m_window->property("videoPoppedOut").toBool() ||
+                   m_window->property("restoringMainWindow").toBool()))
+    return;
+
   qDebug() << "onVisibilityChanged: visibility=" << visibility
            << "m_previousVisibility=" << m_previousVisibility;
 
@@ -772,7 +779,8 @@ void WindowManager::saveWindowSize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void WindowManager::saveWindowPosition()
 {
-  if (!m_window || m_window->property("videoPoppedOut").toBool())
+  if (!m_window || m_window->property("videoPoppedOut").toBool() ||
+      m_window->property("restoringMainWindow").toBool())
     return;
 
   // no-op on Wayland
