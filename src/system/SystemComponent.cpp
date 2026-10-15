@@ -979,7 +979,7 @@ bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loo
   if (!invoked || !success)
   {
     item->setProperty("previewActive", false);
-    setPreviewBounds(item, 0, 0, 1, 1);
+    setPreviewBounds(item, 0, 0, 32, 32);
   }
   return invoked && success;
 }
@@ -1034,7 +1034,7 @@ void SystemComponent::nativeTrailerPreviewStop()
     QMetaObject::invokeMethod(item, "setPreviewMuted", Qt::DirectConnection, Q_ARG(bool, true));
     item->setProperty("previewActive", false);
     QMetaObject::invokeMethod(item, "stopPreview", Qt::DirectConnection);
-    setPreviewBounds(item, 0, 0, 1, 1);
+    setPreviewBounds(item, 0, 0, 32, 32);
   }
 }
 
