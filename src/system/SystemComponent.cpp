@@ -1011,6 +1011,9 @@ void SystemComponent::nativeTrailerPreviewStop()
 {
   if (auto* item = previewSurface())
   {
+    // Mute synchronously before tearing down the decoder, preventing
+    // lingering trailer audio while the banner has already changed.
+    QMetaObject::invokeMethod(item, "setPreviewMuted", Qt::DirectConnection, Q_ARG(bool, true));
     item->setVisible(false);
     QMetaObject::invokeMethod(item, "stopPreview");
   }
