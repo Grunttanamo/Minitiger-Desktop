@@ -950,7 +950,8 @@ void setPreviewBounds(QQuickItem* item, int x, int y, int w, int h)
 
 bool SystemComponent::nativeTrailerPreviewAvailable() const
 {
-  return previewSurface() != nullptr;
+  auto* item = previewSurface();
+  return item && item->property("readyForPreview").toBool();
 }
 
 bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loop,
@@ -966,15 +967,20 @@ bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loo
   auto* window = Globals::MainWindow();
   if (!window || x + width > window->width() || y + height > window->height())
     return false;
+  if (!item->property("readyForPreview").toBool())
+    return false;
   setPreviewBounds(item, x, y, width, height);
-  item->setVisible(true);
+  item->setProperty("previewActive", true);
   QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
   bool success = false;
   const bool invoked = QMetaObject::invokeMethod(item, "playPreview", Qt::DirectConnection,
                                                   Q_RETURN_ARG(bool, success),
                                                   Q_ARG(QString, mediaUrl), Q_ARG(bool, loop));
   if (!invoked || !success)
-    item->setVisible(false);
+  {
+    item->setProperty("previewActive", false);
+    setPreviewBounds(item, 0, 0, 1, 1);
+  }
   return invoked && success;
 }
 
@@ -982,7 +988,7 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
 {
   auto* item = previewSurface();
   auto* window = Globals::MainWindow();
-  if (!item || !item->isVisible() || !window)
+  if (!item || !item->property("previewActive").toBool() || !window)
     return;
   if (!validPreviewRect(x, y, width, height) || x + width > window->width() || y + height > window->height())
   {
@@ -995,7 +1001,9 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
 QString SystemComponent::nativeTrailerPreviewStatus() const
 {
   auto* item = previewSurface();
-  if (!item || !item->isVisible()) return QStringLiteral("Native preview not active");
+  if (!item) return QStringLiteral("MPV item missing");
+  if (!item->property("readyForPreview").toBool()) return QStringLiteral("Native MPV decoder not initialized");
+  if (!item->property("previewActive").toBool()) return QStringLiteral("Native MPV ready; no active preview");
   QString status;
   QMetaObject::invokeMethod(item, "previewStatus", Qt::DirectConnection,
                              Q_RETURN_ARG(QString, status));
@@ -1005,7 +1013,7 @@ QString SystemComponent::nativeTrailerPreviewStatus() const
 bool SystemComponent::nativeTrailerPreviewEnded() const
 {
   auto* item = previewSurface();
-  if (!item || !item->isVisible()) return false;
+  if (!item || !item->property("previewActive").toBool()) return false;
   bool ended = false;
   QMetaObject::invokeMethod(item, "previewEnded", Qt::DirectConnection, Q_RETURN_ARG(bool, ended));
   return ended;
@@ -1024,8 +1032,9 @@ void SystemComponent::nativeTrailerPreviewStop()
     // Mute synchronously before tearing down the decoder, preventing
     // lingering trailer audio while the banner has already changed.
     QMetaObject::invokeMethod(item, "setPreviewMuted", Qt::DirectConnection, Q_ARG(bool, true));
-    item->setVisible(false);
-    QMetaObject::invokeMethod(item, "stopPreview");
+    item->setProperty("previewActive", false);
+    QMetaObject::invokeMethod(item, "stopPreview", Qt::DirectConnection);
+    setPreviewBounds(item, 0, 0, 1, 1);
   }
 }
 
