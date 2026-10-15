@@ -447,10 +447,11 @@ Window
     visible: true
     enabled: true
     property bool previewActive: false
+    opacity: previewActive ? 1 : 0.02
     x: 0
     y: 0
-    width: 1
-    height: 1
+    width: 32
+    height: 32
   }
 
   // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
