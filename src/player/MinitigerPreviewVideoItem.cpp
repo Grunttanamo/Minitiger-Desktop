@@ -124,3 +124,11 @@ void MinitigerPreviewVideoItem::setPreviewMuted(bool muted)
     if (mpvController())
         mpvController()->setProperty("mute", muted);
 }
+
+void MinitigerPreviewVideoItem::setPreviewSuspended(bool suspended)
+{
+    // Pause BOTH audio and video during Qt WebEngine scroll compositing.
+    // Keep the current source decoded and resume it without reloading.
+    if (mpvController())
+        mpvController()->setProperty("pause", suspended);
+}
