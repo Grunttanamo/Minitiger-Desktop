@@ -55,6 +55,7 @@ public:
                                             int width, int height, bool muted);
   Q_INVOKABLE void nativeTrailerPreviewGeometry(int x, int y, int width, int height);
   Q_INVOKABLE bool nativeTrailerPreviewEnded() const;
+  Q_INVOKABLE bool nativeTrailerPreviewHasVideo() const;
   Q_INVOKABLE QString nativeTrailerPreviewStatus() const;
   Q_INVOKABLE void nativeTrailerPreviewMute(bool muted);
   Q_INVOKABLE void nativeTrailerPreviewStop();
