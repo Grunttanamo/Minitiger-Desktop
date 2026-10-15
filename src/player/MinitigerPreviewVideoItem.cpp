@@ -56,11 +56,11 @@ QString MinitigerPreviewVideoItem::previewStatus() const
                           "Video codec: %4\\nAudio codec: %5\\nVideo width: %6\\n"
                           "Video height: %7\\nHW decoder: %8\\nMuted: %9\\n"
                           "Volume: %10\\nPaused: %11\\nEOF: %12")
-        .arg(property("path"), property("vid"), property("aid"),
-             property("video-codec"), property("audio-codec"),
-             property("video-params/w"), property("video-params/h"),
-             property("hwdec-current"), property("mute"),
-             property("volume"), property("pause"), property("eof-reached"));
+        .arg(property("path")).arg(property("vid")).arg(property("aid"))
+        .arg(property("video-codec")).arg(property("audio-codec"))
+        .arg(property("video-params/w")).arg(property("video-params/h"))
+        .arg(property("hwdec-current")).arg(property("mute"))
+        .arg(property("volume")).arg(property("pause")).arg(property("eof-reached"));
 }
 
 bool MinitigerPreviewVideoItem::previewEnded() const
