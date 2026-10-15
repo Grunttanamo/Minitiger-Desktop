@@ -44,6 +44,15 @@ public:
     Q_INVOKABLE bool setSubtitleTrackRelative(int relativeIndex);
     Q_INVOKABLE bool addExternalSubtitle(const QString& source);
 
+    // Companion-free, non-reporting preview mode: same libVLC playback
+    // engine, no fullscreen focus, OSD, Jellyfin progress or play sessions.
+    void setPreviewMode(bool enabled);
+    bool hasVideoFrame() const { return m_receivedFrame.load(std::memory_order_relaxed); }
+    bool playbackEnded() const { return m_lastPolledState == libvlc_Ended; }
+    bool playbackFailed() const { return m_lastPolledState == libvlc_Error; }
+    bool playbackPaused() const { return m_lastPolledState == libvlc_Paused; }
+    QString currentSource() const { return m_source; }
+
     QString lastError() const { return m_lastError; }
 
 Q_SIGNALS:
@@ -91,6 +100,8 @@ private:
     unsigned m_videoWidth = 0;
     unsigned m_videoHeight = 0;
     int m_volume = 40;
+    bool m_previewMode = false;
+    bool m_muted = false;
     QTimer m_pollTimer;
     libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
     qint64 m_lastDurationMs = -1;
