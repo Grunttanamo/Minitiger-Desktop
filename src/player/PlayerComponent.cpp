@@ -14,7 +14,6 @@
 #include "settings/SettingsSection.h"
 
 #include "MpvVideoItem.h"
-#include "MinitigerPreviewVideoItem.h"
 #ifdef MINITIGER_ENABLE_VLC
 #include "VlcVideoItem.h"
 #endif
@@ -59,7 +58,6 @@ PlayerComponent::PlayerComponent(QObject* parent)
   qmlRegisterType<MpvVideoItem>("Konvergo", 1, 0, "MpvVideo"); // deprecated name
   qmlRegisterType<MpvVideoItem>("Konvergo", 1, 0, "KonvergoVideo");
   qmlRegisterType<MpvVideoItem>("Konvergo", 1, 0, "MpvVideoItem");
-  qmlRegisterType<MinitigerPreviewVideoItem>("Konvergo", 1, 0, "MinitigerPreviewVideoItem");
 
   m_restoreDisplayTimer.setSingleShot(true);
   connect(&m_restoreDisplayTimer, &QTimer::timeout, this, &PlayerComponent::onRestoreDisplay);
