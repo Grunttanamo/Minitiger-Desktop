@@ -17,7 +17,7 @@ MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
         if (!decoder)
             return;
         decoder->setProperty("mute", true);
-        decoder->setProperty("volume", 0);
+        decoder->setProperty("volume", 100);
         decoder->setProperty("osd-level", 0);
         decoder->setProperty("ytdl", false);
         decoder->setProperty("hwdec", "auto-safe");
