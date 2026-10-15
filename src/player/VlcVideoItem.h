@@ -47,6 +47,7 @@ public:
     // Companion-free, non-reporting preview mode: same libVLC playback
     // engine, no fullscreen focus, OSD, Jellyfin progress or play sessions.
     void setPreviewMode(bool enabled);
+    void setPreviewLoop(bool enabled) { m_previewLoop = enabled; }
     bool hasVideoFrame() const { return m_receivedFrame.load(std::memory_order_relaxed); }
     bool playbackEnded() const { return m_lastPolledState == libvlc_Ended; }
     bool playbackFailed() const { return m_lastPolledState == libvlc_Error; }
@@ -101,6 +102,7 @@ private:
     unsigned m_videoHeight = 0;
     int m_volume = 40;
     bool m_previewMode = false;
+    bool m_previewLoop = false;
     bool m_muted = false;
     QTimer m_pollTimer;
     libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
