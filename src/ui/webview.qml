@@ -438,12 +438,16 @@ Window
     objectName: "minitigerNativeTrailerPreview"
     // Behind the transparent WebEngine surface so HTML controls remain clickable.
     z: 99
-    visible: false
+    // Prime the Qt Quick scene graph. An invisible zero-sized video item
+    // may never initialize libmpv's render context and emit ready().
+    // When idle this is a silent 1x1 surface behind the WebEngine.
+    visible: true
     enabled: false
+    property bool previewActive: false
     x: 0
     y: 0
-    width: 0
-    height: 0
+    width: 1
+    height: 1
   }
 
   // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
