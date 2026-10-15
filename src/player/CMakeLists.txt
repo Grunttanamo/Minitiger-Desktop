@@ -1,7 +1,6 @@
 add_sources(PlayerComponent.cpp PlayerComponent.h)
 add_sources(AlbumArtProvider.cpp AlbumArtProvider.h)
 add_sources(MpvVideoItem.cpp MpvVideoItem.h)
-add_sources(MinitigerPreviewVideoItem.cpp MinitigerPreviewVideoItem.h)
 
 if(ENABLE_VLC)
   add_sources(VlcVideoItem.cpp VlcVideoItem.h)
