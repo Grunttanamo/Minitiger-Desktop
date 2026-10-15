@@ -432,39 +432,8 @@ Window
     onHeightChanged: console.log("MpvVideoItem height changed:", height)
   }
 
-  // Separate decoder for both banner and expanded preview. No PlayerComponent.
-  MinitigerPreviewVideoItem {
-    id: nativeTrailerPreview
-    objectName: "minitigerNativeTrailerPreview"
-    // MPV belongs UNDER the transparent WebEngine compositing layer.
-    // CSS punches a transparent background ONLY at the active trailer so
-    // Minitiger text, buttons and navigation stay above the decoded frame.
-    z: 99
-    // Prime the Qt Quick scene graph. An invisible zero-sized video item
-    // may never initialize libmpv's render context and emit ready().
-    // When idle this is a silent 1x1 surface behind the WebEngine.
-    visible: true
-    enabled: true
-    property bool previewActive: false
-    property bool previewSuspended: false
-    // Zero opacity while scrolling: WebEngine can paint normally without
-    // invalidating and blending the native OpenGL framebuffer per wheel tick.
-    opacity: previewSuspended ? 0.0 : (previewActive ? 1.0 : 0.02)
-    x: 0
-    y: 0
-    width: 64
-    height: 64
-
-    // Qt's FBO render context is created lazily by the scene graph. Drive its
-    // first frame explicitly, independently of whether a trailer is waiting.
-    Component.onCompleted: nativeTrailerPreview.primeRender()
-    Timer {
-      interval: 120
-      repeat: true
-      running: !nativeTrailerPreview.readyForPreview
-      onTriggered: nativeTrailerPreview.primeRender()
-    }
-  }
+  // Trailer playback now uses a lazy, independent libVLC QQuickItem.
+  // No secondary MPV decoder is instantiated by this window.
 
   // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
   // single-file selection on Windows even when the HTML input uses
