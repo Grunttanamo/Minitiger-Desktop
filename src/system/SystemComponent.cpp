@@ -992,6 +992,16 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
   setPreviewBounds(item, x, y, width, height);
 }
 
+QString SystemComponent::nativeTrailerPreviewStatus() const
+{
+  auto* item = previewSurface();
+  if (!item || !item->isVisible()) return QStringLiteral("Native preview not active");
+  QString status;
+  QMetaObject::invokeMethod(item, "previewStatus", Qt::DirectConnection,
+                             Q_RETURN_ARG(QString, status));
+  return status;
+}
+
 bool SystemComponent::nativeTrailerPreviewEnded() const
 {
   auto* item = previewSurface();
