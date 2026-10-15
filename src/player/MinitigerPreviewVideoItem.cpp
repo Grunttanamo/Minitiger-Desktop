@@ -22,7 +22,8 @@ MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
         decoder->setProperty("ytdl", false);
         decoder->setProperty("hwdec", "auto-safe");
         decoder->setProperty("loop-file", "no");
-        decoder->setProperty("keep-open", "yes");
+        decoder->setProperty("keep-open", "no");
+        decoder->setProperty("pause", false);
         m_ready = true;
         emit readyForPreviewChanged();
     });
@@ -35,8 +36,14 @@ bool MinitigerPreviewVideoItem::playPreview(const QString& url, bool loop)
     const QUrl parsed(url);
     if (!parsed.isValid() || (parsed.scheme() != "https" && parsed.scheme() != "http"))
         return false;
+    // A "stop" and end-of-file can leave MPV paused for the next load.
+    // Execute all operations serially on the dedicated MPV worker.
+    m_requestedUrl = url;
+    mpvController()->command(QStringList() << "stop");
     mpvController()->setProperty("loop-file", loop ? "inf" : "no");
+    mpvController()->setProperty("pause", false);
     mpvController()->command(QStringList() << "loadfile" << url << "replace");
+    mpvController()->setProperty("pause", false);
     return true;
 }
 
@@ -65,17 +72,31 @@ QString MinitigerPreviewVideoItem::previewStatus() const
 
 bool MinitigerPreviewVideoItem::previewHasVideo() const
 {
-    if (!m_ready)
+    if (!m_ready || m_requestedUrl.isEmpty())
         return false;
     auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
     if (!controller || !controller->mpv())
         return false;
+    auto* handle = controller->mpv();
+    // Video parameters alone may still belong to the LAST trailer, especially
+    // if the old player kept its final frame at EOF. Never acknowledge that.
+    char* path = mpv_get_property_string(handle, "path");
+    const bool currentFile = path && QString::fromUtf8(path) == m_requestedUrl;
+    if (path) mpv_free(path);
+    if (!currentFile) return false;
+    int paused = 1;
+    int idle = 1;
+    if (mpv_get_property(handle, "pause", MPV_FORMAT_FLAG, &paused) < 0 || paused)
+        return false;
+    if (mpv_get_property(handle, "core-idle", MPV_FORMAT_FLAG, &idle) < 0 || idle)
+        return false;
     int64_t width = 0;
     int64_t height = 0;
-    auto* handle = controller->mpv();
+    double seconds = 0.0;
     return mpv_get_property(handle, "video-params/w", MPV_FORMAT_INT64, &width) >= 0
         && mpv_get_property(handle, "video-params/h", MPV_FORMAT_INT64, &height) >= 0
-        && width > 0 && height > 0;
+        && mpv_get_property(handle, "time-pos", MPV_FORMAT_DOUBLE, &seconds) >= 0
+        && width > 0 && height > 0 && seconds > 0.04;
 }
 
 bool MinitigerPreviewVideoItem::previewEnded() const
@@ -88,8 +109,11 @@ bool MinitigerPreviewVideoItem::previewEnded() const
 
 void MinitigerPreviewVideoItem::stopPreview()
 {
-    if (mpvController())
+    m_requestedUrl.clear();
+    if (mpvController()) {
         mpvController()->command(QStringList() << "stop");
+        mpvController()->setProperty("pause", false);
+    }
 }
 
 void MinitigerPreviewVideoItem::setPreviewMuted(bool muted)
