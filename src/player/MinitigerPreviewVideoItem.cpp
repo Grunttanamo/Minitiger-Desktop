@@ -40,6 +40,29 @@ bool MinitigerPreviewVideoItem::playPreview(const QString& url, bool loop)
     return true;
 }
 
+QString MinitigerPreviewVideoItem::previewStatus() const
+{
+    auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
+    if (!controller || !controller->mpv()) return QStringLiteral("MPV: not initialized");
+    auto* h = controller->mpv();
+    auto property = [h](const char* key) -> QString {
+        char* value = mpv_get_property_string(h, key);
+        if (!value) return QStringLiteral("-");
+        QString result = QString::fromUtf8(value);
+        mpv_free(value);
+        return result;
+    };
+    return QStringLiteral("MPV path: %1\\nVideo track: %2\\nAudio track: %3\\n"
+                          "Video codec: %4\\nAudio codec: %5\\nVideo width: %6\\n"
+                          "Video height: %7\\nHW decoder: %8\\nMuted: %9\\n"
+                          "Volume: %10\\nPaused: %11\\nEOF: %12")
+        .arg(property("path"), property("vid"), property("aid"),
+             property("video-codec"), property("audio-codec"),
+             property("video-params/w"), property("video-params/h"),
+             property("hwdec-current"), property("mute"),
+             property("volume"), property("pause"), property("eof-reached"));
+}
+
 bool MinitigerPreviewVideoItem::previewEnded() const
 {
     auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
