@@ -25,6 +25,9 @@
 #include <QQuickItem>
 #include <QUrl>
 #include "Globals.h"
+#ifdef MINITIGER_ENABLE_VLC
+#include "player/VlcVideoItem.h"
+#endif
 #include <functional>
 
 #include <QtWebEngineCore/qtwebenginecoreglobal.h>
@@ -927,147 +930,184 @@ bool SystemComponent::applyMinitigerUpdate(
 #endif
 }
 
-// A single dedicated MPV surface serves both Home banners and preview cards.
-// No reference to PlayerComponent or Jellyfin playback reporting is created.
+// VLC-only trailer decoder, completely independent from the MPV film player.
+// It renders via a Qt Quick painted item behind the transparent browser
+// trailer rectangle and does not create Jellyfin playback sessions.
 namespace {
-QQuickItem* previewSurface()
-{
-  auto* window = Globals::MainWindow();
-  return window ? window->findChild<QQuickItem*>("minitigerNativeTrailerPreview") : nullptr;
-}
 bool validPreviewRect(int x, int y, int w, int h)
 {
-  // Preserve the ORIGINAL media size while the page scrolls. Qt Quick
-  // automatically clips the offscreen part; resizing to a viewport slice
-  // used to distort the image and to terminate trailers on scroll.
   return x >= -8192 && y >= -8192 && x <= 8192 && y <= 8192
-      && w > 0 && h > 0 && w <= 8192 && h <= 8192;
+      && w >= 32 && h >= 32 && w <= 8192 && h <= 8192;
 }
-void setPreviewBounds(QQuickItem* item, int x, int y, int w, int h)
+#ifdef MINITIGER_ENABLE_VLC
+VlcVideoItem* previewSurface(bool create = true)
 {
-  item->setX(x);
-  item->setY(y);
-  item->setWidth(w);
-  item->setHeight(h);
+  auto* window = Globals::MainWindow();
+  if (!window) return nullptr;
+  if (auto* existing = window->findChild<VlcVideoItem*>("minitigerNativeTrailerPreview"))
+    return existing;
+  if (!create) return nullptr;
+  auto* preview = new VlcVideoItem(window->contentItem());
+  preview->setObjectName("minitigerNativeTrailerPreview");
+  preview->setPreviewMode(true);
+  preview->setZ(99);
+  preview->setVisible(false);
+  preview->setEnabled(false);
+  preview->setProperty("previewActive", false);
+  preview->setProperty("previewSuspended", false);
+  return preview;
 }
+void setPreviewBounds(VlcVideoItem* item, int x, int y, int w, int h)
+{
+  if (item->x() != x) item->setX(x);
+  if (item->y() != y) item->setY(y);
+  if (item->width() != w) item->setWidth(w);
+  if (item->height() != h) item->setHeight(h);
+}
+#endif
 }
 
 bool SystemComponent::nativeTrailerPreviewAvailable() const
 {
-  auto* item = previewSurface();
-  return item && item->property("readyForPreview").toBool();
+#ifdef MINITIGER_ENABLE_VLC
+  return previewSurface() != nullptr;
+#else
+  return false;
+#endif
 }
 
 bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loop,
                                                 int x, int y, int width, int height, bool muted)
 {
+#ifdef MINITIGER_ENABLE_VLC
   auto* item = previewSurface();
-  const QUrl url(mediaUrl);
-  if (!item || !validPreviewRect(x, y, width, height)
-      || !url.isValid() || (url.scheme() != "http" && url.scheme() != "https"))
-    return false;
-
-  // Never allow unbounded or out-of-window native video overlays.
   auto* window = Globals::MainWindow();
-  if (!window || x >= window->width() || y >= window->height()
+  const QUrl url(mediaUrl);
+  if (!item || !window || !validPreviewRect(x, y, width, height)
+      || !url.isValid() || (url.scheme() != "http" && url.scheme() != "https")
+      || x >= window->width() || y >= window->height()
       || x + width <= 0 || y + height <= 0)
     return false;
-  if (!item->property("readyForPreview").toBool())
-    return false;
-  setPreviewBounds(item, x, y, width, height);
+
+  // The existing media player is retained solely for this native trailer.
+  // Normal film/episode playbacks use the independent MPV PlayerComponent.
+  item->setPreviewLoop(loop);
+  item->setMuted(muted);
+  item->setProperty("previewActive", false);
   item->setProperty("previewSuspended", false);
-  item->setProperty("previewActive", true);
-  QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
-  bool success = false;
-  const bool invoked = QMetaObject::invokeMethod(item, "playPreview", Qt::DirectConnection,
-                                                  Q_RETURN_ARG(bool, success),
-                                                  Q_ARG(QString, mediaUrl), Q_ARG(bool, loop));
-  if (!invoked || !success)
-  {
-    item->setProperty("previewActive", false);
-    setPreviewBounds(item, 0, 0, 32, 32);
+  item->setVisible(false);
+  setPreviewBounds(item, x, y, width, height);
+  const bool started = item->playSource(mediaUrl);
+  if (!started) {
+    item->stopPlayback();
+    return false;
   }
-  return invoked && success;
+  item->setProperty("previewActive", true);
+  item->setVisible(true);
+  return true;
+#else
+  Q_UNUSED(mediaUrl); Q_UNUSED(loop); Q_UNUSED(x); Q_UNUSED(y);
+  Q_UNUSED(width); Q_UNUSED(height); Q_UNUSED(muted);
+  return false;
+#endif
 }
 
 void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int height)
 {
-  auto* item = previewSurface();
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
   auto* window = Globals::MainWindow();
-  if (!item || !item->property("previewActive").toBool() || !window)
+  if (!item || !window || !item->property("previewActive").toBool())
     return;
-  if (!validPreviewRect(x, y, width, height) || x >= window->width() || y >= window->height()
-      || x + width <= 0 || y + height <= 0)
-  {
+  if (!validPreviewRect(x, y, width, height) || x >= window->width()
+      || y >= window->height() || x + width <= 0 || y + height <= 0) {
     nativeTrailerPreviewStop();
     return;
   }
   setPreviewBounds(item, x, y, width, height);
+#else
+  Q_UNUSED(x); Q_UNUSED(y); Q_UNUSED(width); Q_UNUSED(height);
+#endif
 }
 
 QString SystemComponent::nativeTrailerPreviewStatus() const
 {
-  auto* item = previewSurface();
-  if (!item) return QStringLiteral("MPV item missing");
-  if (!item->property("readyForPreview").toBool()) return QStringLiteral("Native MPV decoder not initialized");
-  if (!item->property("previewActive").toBool()) return QStringLiteral("Native MPV ready; no active preview");
-  QString status;
-  QMetaObject::invokeMethod(item, "previewStatus", Qt::DirectConnection,
-                             Q_RETURN_ARG(QString, status));
-  return status;
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
+  if (!item) return QStringLiteral("VLC trailer preview idle");
+  if (!item->property("previewActive").toBool())
+    return QStringLiteral("VLC preview ready; no active trailer");
+  return QStringLiteral("Native trailer engine: libVLC\\nSource: Jellyfin direct media\\nVideo frame received: %1\\nPosition (ms): %2\\nDuration (ms): %3\\nMuted: %4\\nPlayback ended: %5")
+      .arg(item->hasVideoFrame() ? "yes" : "no")
+      .arg(item->positionMs()).arg(item->durationMs())
+      .arg(item->muted() ? "yes" : "no")
+      .arg(item->playbackEnded() ? "yes" : "no");
+#else
+  return QStringLiteral("Native VLC trailer preview unavailable in this build");
+#endif
 }
 
 bool SystemComponent::nativeTrailerPreviewHasVideo() const
 {
-  auto* item = previewSurface();
-  if (!item || !item->property("previewActive").toBool()) return false;
-  bool decoded = false;
-  QMetaObject::invokeMethod(item, "previewHasVideo", Qt::DirectConnection, Q_RETURN_ARG(bool, decoded));
-  return decoded;
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
+  return item && item->property("previewActive").toBool()
+      && item->hasVideoFrame() && item->positionMs() > 40;
+#else
+  return false;
+#endif
 }
 
 bool SystemComponent::nativeTrailerPreviewEnded() const
 {
-  auto* item = previewSurface();
-  if (!item || !item->property("previewActive").toBool()) return false;
-  bool ended = false;
-  QMetaObject::invokeMethod(item, "previewEnded", Qt::DirectConnection, Q_RETURN_ARG(bool, ended));
-  return ended;
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
+  return item && item->property("previewActive").toBool() && item->playbackEnded();
+#else
+  return false;
+#endif
 }
 
 void SystemComponent::nativeTrailerPreviewMute(bool muted)
 {
-  if (auto* item = previewSurface())
-    QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
+#ifdef MINITIGER_ENABLE_VLC
+  if (auto* item = previewSurface(false)) item->setMuted(muted);
+#else
+  Q_UNUSED(muted);
+#endif
 }
 
 void SystemComponent::nativeTrailerPreviewSuspend(bool suspended)
 {
-  auto* item = previewSurface();
-  if (!item || !item->property("previewActive").toBool())
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
+  if (!item || !item->property("previewActive").toBool()
+      || item->property("previewSuspended").toBool() == suspended)
     return;
-  if (item->property("previewSuspended").toBool() == suspended)
-    return;
-  // Disable QtQuick's native framebuffer during the actual scroll, not
-  // just its audio. Moving/resizing libmpv beneath a scrolling Chromium
-  // WebEngine causes stale texture copies across the entire interface.
   item->setProperty("previewSuspended", suspended);
-  QMetaObject::invokeMethod(item, "setPreviewSuspended", Qt::DirectConnection,
-                            Q_ARG(bool, suspended));
+  if (suspended) {
+    item->setVisible(false);
+    item->pausePlayback();
+  } else {
+    item->resumePlayback();
+    item->setVisible(true);
+  }
+#else
+  Q_UNUSED(suspended);
+#endif
 }
 
 void SystemComponent::nativeTrailerPreviewStop()
 {
-  if (auto* item = previewSurface())
-  {
-    // Mute synchronously before tearing down the decoder, preventing
-    // lingering trailer audio while the banner has already changed.
-    QMetaObject::invokeMethod(item, "setPreviewMuted", Qt::DirectConnection, Q_ARG(bool, true));
-    item->setProperty("previewActive", false);
-    item->setProperty("previewSuspended", false);
-    QMetaObject::invokeMethod(item, "stopPreview", Qt::DirectConnection);
-    setPreviewBounds(item, 0, 0, 32, 32);
-  }
+#ifdef MINITIGER_ENABLE_VLC
+  auto* item = previewSurface(false);
+  if (!item) return;
+  item->setMuted(true);
+  item->setProperty("previewActive", false);
+  item->setProperty("previewSuspended", false);
+  item->setVisible(false);
+  item->stopPlayback();
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
