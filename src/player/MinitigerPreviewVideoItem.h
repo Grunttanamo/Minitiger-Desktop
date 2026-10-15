@@ -17,6 +17,7 @@ public:
     Q_INVOKABLE QString previewStatus() const;
     Q_INVOKABLE void stopPreview();
     Q_INVOKABLE void setPreviewMuted(bool muted);
+    Q_INVOKABLE void setPreviewSuspended(bool suspended);
 signals:
     void readyForPreviewChanged();
 private:
