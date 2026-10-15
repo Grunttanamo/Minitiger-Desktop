@@ -12,6 +12,7 @@ public:
     bool readyForPreview() const { return m_ready; }
     Q_INVOKABLE bool playPreview(const QString& url, bool loop);
     Q_INVOKABLE bool previewEnded() const;
+    Q_INVOKABLE QString previewStatus() const;
     Q_INVOKABLE void stopPreview();
     Q_INVOKABLE void setPreviewMuted(bool muted);
 signals:
