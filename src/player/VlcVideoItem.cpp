@@ -500,6 +500,18 @@ void VlcVideoItem::pollPlaybackState()
         m_pendingInitialSeek = false;
     }
 
+    if (state == libvlc_Ended && m_previewMode && m_previewLoop)
+    {
+        // Continuous previews should restart the same VLC item, not
+        // instantiate a second decoder or push an event to Jellyfin.
+        m_receivedFrame.store(false, std::memory_order_relaxed);
+        m_lastPolledState = libvlc_NothingSpecial;
+        libvlc_media_player_stop(m_mediaPlayer);
+        if (libvlc_media_player_play(m_mediaPlayer) != 0)
+            emit playbackError(QStringLiteral("VLC preview repeat failed"));
+        return;
+    }
+
     if (state != m_lastPolledState)
     {
         switch (state)
