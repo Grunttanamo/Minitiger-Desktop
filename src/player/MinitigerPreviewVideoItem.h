@@ -21,4 +21,5 @@ signals:
     void readyForPreviewChanged();
 private:
     bool m_ready = false;
+    QString m_requestedUrl;
 };
