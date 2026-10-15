@@ -450,8 +450,18 @@ Window
     opacity: previewActive ? 1 : 0.02
     x: 0
     y: 0
-    width: 32
-    height: 32
+    width: 64
+    height: 64
+
+    // Qt's FBO render context is created lazily by the scene graph. Drive its
+    // first frame explicitly, independently of whether a trailer is waiting.
+    Component.onCompleted: update()
+    Timer {
+      interval: 120
+      repeat: true
+      running: !nativeTrailerPreview.readyForPreview
+      onTriggered: nativeTrailerPreview.update()
+    }
   }
 
   // Qt WebEngine's default Qt Quick file picker can incorrectly fall back to
