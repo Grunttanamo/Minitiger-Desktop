@@ -975,6 +975,7 @@ bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loo
   if (!item->property("readyForPreview").toBool())
     return false;
   setPreviewBounds(item, x, y, width, height);
+  item->setProperty("previewSuspended", false);
   item->setProperty("previewActive", true);
   QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
   bool success = false;
@@ -993,7 +994,7 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
 {
   auto* item = previewSurface();
   auto* window = Globals::MainWindow();
-  if (!item || !item->property("previewActive").toBool() || !window)
+  if (!item || !item->property("previewActive").toBool() || item->property("previewSuspended").toBool() || !window)
     return;
   if (!validPreviewRect(x, y, width, height) || x >= window->width() || y >= window->height()
       || x + width <= 0 || y + height <= 0)
@@ -1040,6 +1041,21 @@ void SystemComponent::nativeTrailerPreviewMute(bool muted)
     QMetaObject::invokeMethod(item, "setPreviewMuted", Q_ARG(bool, muted));
 }
 
+void SystemComponent::nativeTrailerPreviewSuspend(bool suspended)
+{
+  auto* item = previewSurface();
+  if (!item || !item->property("previewActive").toBool())
+    return;
+  if (item->property("previewSuspended").toBool() == suspended)
+    return;
+  // Disable QtQuick's native framebuffer during the actual scroll, not
+  // just its audio. Moving/resizing libmpv beneath a scrolling Chromium
+  // WebEngine causes stale texture copies across the entire interface.
+  item->setProperty("previewSuspended", suspended);
+  QMetaObject::invokeMethod(item, "setPreviewSuspended", Qt::DirectConnection,
+                            Q_ARG(bool, suspended));
+}
+
 void SystemComponent::nativeTrailerPreviewStop()
 {
   if (auto* item = previewSurface())
@@ -1048,6 +1064,7 @@ void SystemComponent::nativeTrailerPreviewStop()
     // lingering trailer audio while the banner has already changed.
     QMetaObject::invokeMethod(item, "setPreviewMuted", Qt::DirectConnection, Q_ARG(bool, true));
     item->setProperty("previewActive", false);
+    item->setProperty("previewSuspended", false);
     QMetaObject::invokeMethod(item, "stopPreview", Qt::DirectConnection);
     setPreviewBounds(item, 0, 0, 32, 32);
   }
