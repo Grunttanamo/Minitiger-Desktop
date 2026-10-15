@@ -13,6 +13,7 @@ public:
     Q_INVOKABLE void primeRender() { update(); }
     Q_INVOKABLE bool playPreview(const QString& url, bool loop);
     Q_INVOKABLE bool previewEnded() const;
+    Q_INVOKABLE bool previewHasVideo() const;
     Q_INVOKABLE QString previewStatus() const;
     Q_INVOKABLE void stopPreview();
     Q_INVOKABLE void setPreviewMuted(bool muted);
