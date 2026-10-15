@@ -449,7 +449,7 @@ Window
     property bool previewSuspended: false
     // Zero opacity while scrolling: WebEngine can paint normally without
     // invalidating and blending the native OpenGL framebuffer per wheel tick.
-    opacity: previewActive && !previewSuspended ? 1 : 0.0
+    opacity: previewSuspended ? 0.0 : (previewActive ? 1.0 : 0.02)
     x: 0
     y: 0
     width: 64
