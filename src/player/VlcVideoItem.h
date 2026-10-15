@@ -50,7 +50,7 @@ public:
     bool hasVideoFrame() const { return m_receivedFrame.load(std::memory_order_relaxed); }
     bool playbackEnded() const { return m_lastPolledState == libvlc_Ended; }
     bool playbackFailed() const { return m_lastPolledState == libvlc_Error; }
-    bool playbackPaused() const { return m_lastPolledState == libvlc_Paused; }
+    bool previewIsPaused() const { return m_lastPolledState == libvlc_Paused; }
     QString currentSource() const { return m_source; }
 
     QString lastError() const { return m_lastError; }
