@@ -20,7 +20,16 @@ MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
         decoder->setProperty("volume", 100);
         decoder->setProperty("osd-level", 0);
         decoder->setProperty("ytdl", false);
-        decoder->setProperty("hwdec", "auto-safe");
+        // Qt WebEngine and the QQuickFramebufferObject each have their own GL
+        // render/compositor context. On Windows, direct NVDEC GPU surfaces
+        // can trigger expensive synchronization/cross-adapter transfers
+        // (audio remains smooth while Qt presents only 2-3 frames/second).
+        // Copy-back hardware decoding avoids sharing the decoder's native GPU
+        // surfaces with the QtQuick render texture. Still direct-plays the
+        // original Jellyfin file; only this lightweight preview changes.
+        decoder->setProperty("hwdec", "auto-copy");
+        decoder->setProperty("interpolation", false);
+        decoder->setProperty("video-sync", "audio");
         // Match the old HTML object-fit:cover instead of letterboxing a
         // 16:9 trailer in the ultra-wide home banner.
         decoder->setProperty("panscan", 1.0);
