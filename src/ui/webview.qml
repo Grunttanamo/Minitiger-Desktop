@@ -436,11 +436,10 @@ Window
   MinitigerPreviewVideoItem {
     id: nativeTrailerPreview
     objectName: "minitigerNativeTrailerPreview"
-    // Native QtQuick FBO MUST render above WebEngineView (z:100). The
-    // Chromium compositor can otherwise fully occlude the mpv framebuffer,
-    // preventing both ready() and visible frames. The React bridge limits
-    // the rectangle to the background's control-free region.
-    z: 101
+    // MPV belongs UNDER the transparent WebEngine compositing layer.
+    // CSS punches a transparent background ONLY at the active trailer so
+    // Minitiger text, buttons and navigation stay above the decoded frame.
+    z: 99
     // Prime the Qt Quick scene graph. An invisible zero-sized video item
     // may never initialize libmpv's render context and emit ready().
     // When idle this is a silent 1x1 surface behind the WebEngine.
