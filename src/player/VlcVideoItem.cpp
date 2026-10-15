@@ -51,6 +51,19 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
 
+void VlcVideoItem::setPreviewMode(bool enabled)
+{
+    m_previewMode = enabled;
+    m_muted = enabled;
+    if (enabled) {
+        setFocus(false);
+        setFlag(QQuickItem::ItemIsFocusScope, false);
+        setEnabled(false);
+        setOpaquePainting(false);
+        setVolume(100);
+    }
+}
+
 VlcVideoItem::~VlcVideoItem()
 {
     releasePlayer();
@@ -135,7 +148,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     else
     {
         const QByteArray location = source.toUtf8();
-        qInfo() << "Minitiger VLC opening location:" << source;
+        qInfo() << "Minitiger VLC opening remote media (URL credentials redacted)";
         media = libvlc_media_new_location(m_vlc, location.constData());
     }
 
@@ -181,7 +194,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     // Phase 1.2 test default: intentionally start below VLC's full volume.
     // This will later be replaced by Minitiger/Jellyfin's stored device volume.
     libvlc_audio_set_volume(m_mediaPlayer, m_volume);
-    libvlc_audio_set_mute(m_mediaPlayer, 0);
+    libvlc_audio_set_mute(m_mediaPlayer, m_muted ? 1 : 0);
 
     m_status = QStringLiteral("Opening media with libVLC...");
     m_receivedFrame.store(false, std::memory_order_relaxed);
@@ -203,7 +216,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     m_lastError.clear();
     m_status = QStringLiteral("Playback started - waiting for first video frame...");
     m_pollTimer.start();
-    forceActiveFocus();
+    if (!m_previewMode) forceActiveFocus();
     update();
     return true;
 }
@@ -324,6 +337,7 @@ int VlcVideoItem::volume() const
 
 void VlcVideoItem::setMuted(bool isMuted)
 {
+    m_muted = isMuted;
     if (m_mediaPlayer)
         libvlc_audio_set_mute(m_mediaPlayer, isMuted ? 1 : 0);
 
@@ -334,7 +348,7 @@ void VlcVideoItem::setMuted(bool isMuted)
 bool VlcVideoItem::muted() const
 {
     if (!m_mediaPlayer)
-        return false;
+        return m_muted;
 
     return libvlc_audio_get_mute(m_mediaPlayer) == 1;
 }
@@ -522,11 +536,13 @@ void VlcVideoItem::pollPlaybackState()
 
 void VlcVideoItem::paint(QPainter* painter)
 {
-    painter->fillRect(boundingRect(), Qt::black);
+    if (!m_previewMode)
+        painter->fillRect(boundingRect(), Qt::black);
 
     QMutexLocker locker(&m_frameMutex);
     if (m_frame.isNull())
     {
+        if (m_previewMode) return;
         painter->setPen(Qt::white);
         painter->drawText(
             boundingRect().adjusted(24, 24, -24, -24),
@@ -547,7 +563,8 @@ void VlcVideoItem::paint(QPainter* painter)
     const QSize availableSize(
         qMax(1, qRound(width())),
         qMax(1, qRound(height())));
-    const QSize targetSize = sourceSize.scaled(availableSize, Qt::KeepAspectRatio);
+    const QSize targetSize = sourceSize.scaled(
+        availableSize, m_previewMode ? Qt::KeepAspectRatioByExpanding : Qt::KeepAspectRatio);
 
     const qreal targetX = qRound((width() - targetSize.width()) / 2.0);
     const qreal targetY = qRound((height() - targetSize.height()) / 2.0);
@@ -557,9 +574,10 @@ void VlcVideoItem::paint(QPainter* painter)
         targetSize.width(),
         targetSize.height());
 
+    if (m_previewMode) painter->setClipRect(boundingRect());
     painter->drawImage(target, m_frame, QRectF(m_frame.rect()));
 
-    if (!m_receivedFrame.load(std::memory_order_relaxed))
+    if (!m_previewMode && !m_receivedFrame.load(std::memory_order_relaxed))
     {
         painter->drawText(
             boundingRect().adjusted(24, 24, -24, -24),
