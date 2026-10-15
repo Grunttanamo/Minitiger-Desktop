@@ -13,7 +13,7 @@ set VLC_VERSION=3.0.23
 
 REM Minitiger Web is the authoritative frontend source for the desktop bundle.
 set MINITIGER_WEB_REPO=https://github.com/Grunttanamo/Minitiger-Desktop-Web.git
-REM TEST build 64: mpvqt NVDEC copy-back and reduced WebEngine GPU backdrop work
+REM TEST build 65: libVLC-only native trailer preview, MPV films unchanged, preview opacity repair
 set MINITIGER_WEB_BRANCH=test/watchparty-same-server-20261014
 
 set SCRIPT_DIR=%~dp0
