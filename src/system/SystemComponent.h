@@ -58,6 +58,7 @@ public:
   Q_INVOKABLE bool nativeTrailerPreviewHasVideo() const;
   Q_INVOKABLE QString nativeTrailerPreviewStatus() const;
   Q_INVOKABLE void nativeTrailerPreviewMute(bool muted);
+  Q_INVOKABLE void nativeTrailerPreviewSuspend(bool suspended);
   Q_INVOKABLE void nativeTrailerPreviewStop();
 
   Q_INVOKABLE QString getUserAgent();
