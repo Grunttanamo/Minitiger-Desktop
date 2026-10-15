@@ -1010,6 +1010,15 @@ QString SystemComponent::nativeTrailerPreviewStatus() const
   return status;
 }
 
+bool SystemComponent::nativeTrailerPreviewHasVideo() const
+{
+  auto* item = previewSurface();
+  if (!item || !item->property("previewActive").toBool()) return false;
+  bool decoded = false;
+  QMetaObject::invokeMethod(item, "previewHasVideo", Qt::DirectConnection, Q_RETURN_ARG(bool, decoded));
+  return decoded;
+}
+
 bool SystemComponent::nativeTrailerPreviewEnded() const
 {
   auto* item = previewSurface();
