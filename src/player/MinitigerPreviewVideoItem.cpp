@@ -21,6 +21,9 @@ MinitigerPreviewVideoItem::MinitigerPreviewVideoItem(QQuickItem* parent)
         decoder->setProperty("osd-level", 0);
         decoder->setProperty("ytdl", false);
         decoder->setProperty("hwdec", "auto-safe");
+        // Match the old HTML object-fit:cover instead of letterboxing a
+        // 16:9 trailer in the ultra-wide home banner.
+        decoder->setProperty("panscan", 1.0);
         decoder->setProperty("loop-file", "no");
         decoder->setProperty("keep-open", "no");
         decoder->setProperty("pause", false);
