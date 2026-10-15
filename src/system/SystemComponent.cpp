@@ -995,7 +995,8 @@ void SystemComponent::nativeTrailerPreviewGeometry(int x, int y, int width, int 
   auto* window = Globals::MainWindow();
   if (!item || !item->property("previewActive").toBool() || !window)
     return;
-  if (!validPreviewRect(x, y, width, height) || x + width > window->width() || y + height > window->height())
+  if (!validPreviewRect(x, y, width, height) || x >= window->width() || y >= window->height()
+      || x + width <= 0 || y + height <= 0)
   {
     nativeTrailerPreviewStop();
     return;
