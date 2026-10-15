@@ -937,7 +937,11 @@ QQuickItem* previewSurface()
 }
 bool validPreviewRect(int x, int y, int w, int h)
 {
-  return x >= 0 && y >= 0 && w > 0 && h > 0 && w <= 8192 && h <= 8192;
+  // Preserve the ORIGINAL media size while the page scrolls. Qt Quick
+  // automatically clips the offscreen part; resizing to a viewport slice
+  // used to distort the image and to terminate trailers on scroll.
+  return x >= -8192 && y >= -8192 && x <= 8192 && y <= 8192
+      && w > 0 && h > 0 && w <= 8192 && h <= 8192;
 }
 void setPreviewBounds(QQuickItem* item, int x, int y, int w, int h)
 {
@@ -965,7 +969,8 @@ bool SystemComponent::nativeTrailerPreviewPlay(const QString& mediaUrl, bool loo
 
   // Never allow unbounded or out-of-window native video overlays.
   auto* window = Globals::MainWindow();
-  if (!window || x + width > window->width() || y + height > window->height())
+  if (!window || x >= window->width() || y >= window->height()
+      || x + width <= 0 || y + height <= 0)
     return false;
   if (!item->property("readyForPreview").toBool())
     return false;
