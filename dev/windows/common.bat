@@ -13,7 +13,7 @@ set VLC_VERSION=3.0.23
 
 REM Minitiger Web is the authoritative frontend source for the desktop bundle.
 set MINITIGER_WEB_REPO=https://github.com/Grunttanamo/Minitiger-Desktop-Web.git
-REM Watchparty TEST build 51: season layout, styled confirmation, banner ownership fixes
+REM WatchTogether room preview TEST: MPV audio, season hover and party controls
 set MINITIGER_WEB_BRANCH=test/watchparty-same-server-20261014
 
 set SCRIPT_DIR=%~dp0
