@@ -446,7 +446,6 @@ Window
     // When idle this is a silent 1x1 surface behind the WebEngine.
     visible: true
     enabled: true
-    acceptedMouseButtons: Qt.NoButton
     property bool previewActive: false
     x: 0
     y: 0
