@@ -63,6 +63,21 @@ QString MinitigerPreviewVideoItem::previewStatus() const
         .arg(property("volume")).arg(property("pause")).arg(property("eof-reached"));
 }
 
+bool MinitigerPreviewVideoItem::previewHasVideo() const
+{
+    if (!m_ready)
+        return false;
+    auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
+    if (!controller || !controller->mpv())
+        return false;
+    int64_t width = 0;
+    int64_t height = 0;
+    auto* handle = controller->mpv();
+    return mpv_get_property(handle, "video-params/w", MPV_FORMAT_INT64, &width) >= 0
+        && mpv_get_property(handle, "video-params/h", MPV_FORMAT_INT64, &height) >= 0
+        && width > 0 && height > 0;
+}
+
 bool MinitigerPreviewVideoItem::previewEnded() const
 {
     auto* controller = const_cast<MinitigerPreviewVideoItem*>(this)->mpvController();
