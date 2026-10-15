@@ -165,8 +165,8 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
             ? QString::fromUtf8(vlcError)
             : QStringLiteral("no libVLC error text available");
 
-        setError(QStringLiteral("Failed to create libVLC media: %1\nSource: %2")
-                     .arg(detail, source));
+        // Never copy Jellyfin's ApiKey query into persistent desktop logs.
+        setError(QStringLiteral("Failed to create libVLC media: %1").arg(detail));
         return false;
     }
 
