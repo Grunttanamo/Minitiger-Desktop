@@ -455,12 +455,12 @@ Window
 
     // Qt's FBO render context is created lazily by the scene graph. Drive its
     // first frame explicitly, independently of whether a trailer is waiting.
-    Component.onCompleted: update()
+    Component.onCompleted: nativeTrailerPreview.primeRender()
     Timer {
       interval: 120
       repeat: true
       running: !nativeTrailerPreview.readyForPreview
-      onTriggered: nativeTrailerPreview.update()
+      onTriggered: nativeTrailerPreview.primeRender()
     }
   }
 
