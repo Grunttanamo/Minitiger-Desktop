@@ -1,6 +1,7 @@
 #ifndef VLCVIDEOITEM_H
 #define VLCVIDEOITEM_H
 
+#include <QElapsedTimer>
 #include <QImage>
 #include <QMutex>
 #include <QQuickPaintedItem>
@@ -55,6 +56,7 @@ public:
     QString currentSource() const { return m_source; }
 
     QString lastError() const { return m_lastError; }
+    QString previewDiagnostics() const;
 
 Q_SIGNALS:
     void playbackStarted();
@@ -107,6 +109,13 @@ private:
     QTimer m_pollTimer;
     // Preview frames are coalesced on the GUI thread at a bounded refresh rate.
     QTimer m_previewFrameTimer;
+    QElapsedTimer m_previewClock;
+    std::atomic_int m_previewDecodedFrames { 0 };
+    std::atomic_int m_previewFirstFrameMs { -1 };
+    int m_previewFramesLastSample = 0;
+    int m_previewSampleElapsedMs = 0;
+    double m_previewDecodedFps = 0.0;
+    QTimer m_previewMetricsTimer;
     std::atomic_bool m_previewFrameDirty { false };
     libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
     qint64 m_lastDurationMs = -1;
