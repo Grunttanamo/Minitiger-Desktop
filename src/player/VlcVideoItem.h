@@ -105,6 +105,9 @@ private:
     bool m_previewLoop = false;
     bool m_muted = false;
     QTimer m_pollTimer;
+    // Preview frames are coalesced on the GUI thread at a bounded refresh rate.
+    QTimer m_previewFrameTimer;
+    std::atomic_bool m_previewFrameDirty { false };
     libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
     qint64 m_lastDurationMs = -1;
     qint64 m_pendingStartMs = 0;
