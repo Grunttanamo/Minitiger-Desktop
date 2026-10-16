@@ -116,6 +116,15 @@ private:
     int m_previewSampleElapsedMs = 0;
     double m_previewDecodedFps = 0.0;
     QTimer m_previewMetricsTimer;
+    std::atomic_int m_previewPaintCalls { 0 };
+    std::atomic_llong m_previewPaintTotalUs { 0 };
+    std::atomic_llong m_previewMutexWaitTotalUs { 0 };
+    int m_previewPaintLastSample = 0;
+    qint64 m_previewPaintTimeLastSampleUs = 0;
+    qint64 m_previewWaitLastSampleUs = 0;
+    double m_previewPaintFps = 0.0;
+    double m_previewPaintAverageMs = 0.0;
+    double m_previewMutexWaitAverageMs = 0.0;
     std::atomic_bool m_previewFrameDirty { false };
     libvlc_state_t m_lastPolledState = libvlc_NothingSpecial;
     qint64 m_lastDurationMs = -1;
