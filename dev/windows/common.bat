@@ -40,6 +40,16 @@ if not defined VCVARS if exist "%VS_CM%" set "VCVARS=%VS_CM%"
 if not defined VCVARS if exist "%VS_PR%" set "VCVARS=%VS_PR%"
 if not defined VCVARS if exist "%VS_EN%" set "VCVARS=%VS_EN%"
 if not defined VCVARS if exist "%VS_BT86%" set "VCVARS=%VS_BT86%"
+REM GitHub Windows runners may ship VS 2026 or a nonstandard VS location.
+REM Prefer the installed MSVC toolchain found by Microsoft's own vswhere.
+if not defined VCVARS (
+    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" (
+        for /f "usebackq delims=" %%V in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+            if exist "%%V\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%%V\VC\Auxiliary\Build\vcvars64.bat"
+        )
+    )
+)
+
 
 if "%~1"=="" goto :eof
 goto %~1
