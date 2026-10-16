@@ -1041,7 +1041,8 @@ QString SystemComponent::nativeTrailerPreviewStatus() const
       .arg(item->hasVideoFrame() ? "yes" : "no")
       .arg(item->positionMs()).arg(item->durationMs())
       .arg(item->muted() ? "yes" : "no")
-      .arg(item->playbackEnded() ? "yes" : "no");
+      .arg(item->playbackEnded() ? "yes" : "no")
+      + QStringLiteral("\\n--- VLC preview timing ---\\n") + item->previewDiagnostics();
 #else
   return QStringLiteral("Native VLC trailer preview unavailable in this build");
 #endif
