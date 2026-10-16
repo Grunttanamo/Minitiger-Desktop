@@ -48,6 +48,19 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
         pollPlaybackState();
     });
 
+    // Never enqueue one Qt GUI event per decoded VLC preview frame. A bounded
+    // refresh rate prevents the WebEngine/Qt Quick compositor being starved.
+    m_previewFrameTimer.setInterval(33);
+    m_previewFrameTimer.setTimerType(Qt::PreciseTimer);
+    connect(&m_previewFrameTimer, &QTimer::timeout, this, [this]() {
+        if (m_previewMode && m_previewFrameDirty.exchange(false, std::memory_order_acq_rel)) {
+            if (m_receivedFrame.load(std::memory_order_relaxed))
+                m_status = QStringLiteral("Receiving VLC video frames");
+            if (isVisible())
+                update();
+        }
+    });
+
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
 
@@ -99,6 +112,8 @@ bool VlcVideoItem::ensureVlc()
 void VlcVideoItem::releasePlayer()
 {
     m_pollTimer.stop();
+    m_previewFrameTimer.stop();
+    m_previewFrameDirty.store(false, std::memory_order_relaxed);
 
     if (!m_mediaPlayer)
         return;
@@ -216,6 +231,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     m_lastError.clear();
     m_status = QStringLiteral("Playback started - waiting for first video frame...");
     m_pollTimer.start();
+    if (m_previewMode) m_previewFrameTimer.start();
     if (!m_previewMode) forceActiveFocus();
     update();
     return true;
@@ -690,6 +706,12 @@ void VlcVideoItem::displayVideo(void* opaque, void* picture)
 
     auto* item = static_cast<VlcVideoItem*>(opaque);
     const bool firstFrame = !item->m_receivedFrame.exchange(true, std::memory_order_relaxed);
+    if (item->m_previewMode) {
+        // VLC callbacks run off the GUI thread. Only signal a pending frame:
+        // the GUI timer coalesces bursts and redraws at up to ~30 FPS.
+        item->m_previewFrameDirty.store(true, std::memory_order_release);
+        return;
+    }
 
     QMetaObject::invokeMethod(item, [item, firstFrame]() {
         if (firstFrame)
