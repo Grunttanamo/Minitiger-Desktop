@@ -73,6 +73,18 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
         m_previewDecodedFps = sampleDuration > 0
             ? (1000.0 * m_previewFramesLastSample) / sampleDuration : 0.0;
         m_previewFramesLastSample = current;
+        const int painted = m_previewPaintCalls.load(std::memory_order_relaxed);
+        const qint64 paintUs = m_previewPaintTotalUs.load(std::memory_order_relaxed);
+        const qint64 waitUs = m_previewMutexWaitTotalUs.load(std::memory_order_relaxed);
+        const int paintedDelta = painted - m_previewPaintLastSample;
+        const qint64 paintDelta = paintUs - m_previewPaintTimeLastSampleUs;
+        const qint64 waitDelta = waitUs - m_previewWaitLastSampleUs;
+        m_previewPaintFps = sampleDuration > 0 ? (1000.0 * paintedDelta) / sampleDuration : 0.0;
+        m_previewPaintAverageMs = paintedDelta > 0 ? double(paintDelta) / (1000.0 * paintedDelta) : 0.0;
+        m_previewMutexWaitAverageMs = paintedDelta > 0 ? double(waitDelta) / (1000.0 * paintedDelta) : 0.0;
+        m_previewPaintLastSample = painted;
+        m_previewPaintTimeLastSampleUs = paintUs;
+        m_previewWaitLastSampleUs = waitUs;
     });
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
@@ -228,6 +240,15 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     if (m_previewMode) {
         m_previewClock.start();
         m_previewDecodedFrames.store(0, std::memory_order_relaxed);
+        m_previewPaintCalls.store(0, std::memory_order_relaxed);
+        m_previewPaintTotalUs.store(0, std::memory_order_relaxed);
+        m_previewMutexWaitTotalUs.store(0, std::memory_order_relaxed);
+        m_previewPaintLastSample = 0;
+        m_previewPaintTimeLastSampleUs = 0;
+        m_previewWaitLastSampleUs = 0;
+        m_previewPaintFps = 0;
+        m_previewPaintAverageMs = 0;
+        m_previewMutexWaitAverageMs = 0;
         m_previewFirstFrameMs.store(-1, std::memory_order_relaxed);
         m_previewFramesLastSample = 0;
         m_previewSampleElapsedMs = 0;
@@ -590,22 +611,29 @@ void VlcVideoItem::pollPlaybackState()
 QString VlcVideoItem::previewDiagnostics() const
 {
     if (!m_previewMode) return QStringLiteral("previewMode=false");
-    return QStringLiteral("previewMode=true\\nstartupMs=%1\\nfirstFrameMs=%2\\ndecodedFrames=%3\\ndecoderCallbackFpsApprox=%4\\npreviewVisible=%5\\npreviewPaused=%6\\npreviewSize=%7x%8\\nframeBufferSize=%9x%10")
+    return QStringLiteral("previewMode=true\\nstartupMs=%1\\nfirstFrameMs=%2\\ndecodedFrames=%3\\ndecoderCallbackFpsApprox=%4\\npreviewVisible=%5\\npreviewPaused=%6\\npreviewSize=%7x%8\\nframeBufferSize=%9x%10\\nqtPaintCalls=%11\\nqtPaintFpsApprox=%12\\nqtPaintAverageMs=%13\\nframeMutexWaitAverageMs=%14")
         .arg(m_previewClock.isValid() ? m_previewClock.elapsed() : -1)
         .arg(m_previewFirstFrameMs.load(std::memory_order_relaxed))
         .arg(m_previewDecodedFrames.load(std::memory_order_relaxed))
         .arg(m_previewDecodedFps, 0, 'f', 1)
         .arg(isVisible() ? QStringLiteral("yes") : QStringLiteral("no"))
         .arg(previewIsPaused() ? QStringLiteral("yes") : QStringLiteral("no"))
-        .arg(int(width())).arg(int(height())).arg(m_videoWidth).arg(m_videoHeight);
+        .arg(int(width())).arg(int(height())).arg(m_videoWidth).arg(m_videoHeight)
+        .arg(m_previewPaintCalls.load(std::memory_order_relaxed))
+        .arg(m_previewPaintFps, 0, 'f', 1)
+        .arg(m_previewPaintAverageMs, 0, 'f', 2)
+        .arg(m_previewMutexWaitAverageMs, 0, 'f', 2);
 }
 
 void VlcVideoItem::paint(QPainter* painter)
 {
+    QElapsedTimer paintClock;
+    if (m_previewMode) paintClock.start();
     if (!m_previewMode)
         painter->fillRect(boundingRect(), Qt::black);
 
     QMutexLocker locker(&m_frameMutex);
+    const qint64 mutexWaitUs = m_previewMode ? paintClock.nsecsElapsed() / 1000 : 0;
     if (m_frame.isNull())
     {
         if (m_previewMode) return;
@@ -642,6 +670,12 @@ void VlcVideoItem::paint(QPainter* painter)
 
     if (m_previewMode) painter->setClipRect(boundingRect());
     painter->drawImage(target, m_frame, QRectF(m_frame.rect()));
+
+    if (m_previewMode) {
+        m_previewPaintCalls.fetch_add(1, std::memory_order_relaxed);
+        m_previewPaintTotalUs.fetch_add(paintClock.nsecsElapsed() / 1000, std::memory_order_relaxed);
+        m_previewMutexWaitTotalUs.fetch_add(mutexWaitUs, std::memory_order_relaxed);
+    }
 
     if (!m_previewMode && !m_receivedFrame.load(std::memory_order_relaxed))
     {
