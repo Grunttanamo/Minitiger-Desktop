@@ -114,6 +114,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # TEST 69 retry: explicitly provision runner dependencies before setup.bat.
           # GitHub hosted runners provide Chocolatey and MSVC, but winget's
           # package source is not reliable in non-interactive runner sessions.
           choco install cmake ninja 7zip innosetup --yes --no-progress --limit-output
