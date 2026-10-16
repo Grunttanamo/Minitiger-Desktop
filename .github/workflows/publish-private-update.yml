@@ -1,6 +1,11 @@
 name: Publish Minitiger STABLE update
 
 on:
+  push:
+    branches:
+      - release/promote-1-1-3-20261016
+    paths:
+      - '.github/workflows/publish-private-update.yml'
   workflow_dispatch:
     inputs:
       notes:
@@ -24,6 +29,26 @@ jobs:
       DEFAULT_UPDATE_REPOSITORY: Grunttanamo/Minitiger-Desktop-Updates
 
     steps:
+      - name: Verify approved six-row TEST succeeded
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runId = 38897018183
+          $expectedSha = '1df640fe1049963e0260b7e5cd37471a23280546'
+          for ($i = 0; $i -lt 180; $i++) {
+            $candidate = gh api "repos/Grunttanamo/Minitiger-Desktop/actions/runs/$runId" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'TEST run lookup failed.' }
+            if ($candidate.head_sha -ne $expectedSha) { throw 'Unexpected TEST source commit.' }
+            if ($candidate.status -eq 'completed') {
+              if ($candidate.conclusion -ne 'success') { throw "TEST not successful: $($candidate.conclusion)" }
+              Write-Host 'Approved TEST is successful; promotion may proceed.'
+              break
+            }
+            if ($i -eq 179) { throw 'Timed out waiting for approved TEST completion.' }
+            Start-Sleep -Seconds 30
+          }
       - name: Resolve latest tested candidate
         id: release
         shell: pwsh
