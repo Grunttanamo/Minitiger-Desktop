@@ -61,6 +61,19 @@ VlcVideoItem::VlcVideoItem(QQuickItem* parent)
         }
     });
 
+    m_previewMetricsTimer.setInterval(2000);
+    connect(&m_previewMetricsTimer, &QTimer::timeout, this, [this]() {
+        if (!m_previewMode || !m_previewClock.isValid()) return;
+        const int current = m_previewDecodedFrames.load(std::memory_order_relaxed);
+        const int elapsed = int(m_previewClock.elapsed());
+        m_previewFramesLastSample = current - m_previewFramesLastSample;
+        const int sampleDuration = elapsed - m_previewSampleElapsedMs;
+        m_previewSampleElapsedMs = elapsed;
+        // Store an estimated decode callback rate (not screen presentation FPS).
+        m_previewDecodedFps = sampleDuration > 0
+            ? (1000.0 * m_previewFramesLastSample) / sampleDuration : 0.0;
+        m_previewFramesLastSample = current;
+    });
     qInfo() << "Minitiger VlcVideoItem constructed";
 }
 
@@ -113,6 +126,7 @@ void VlcVideoItem::releasePlayer()
 {
     m_pollTimer.stop();
     m_previewFrameTimer.stop();
+    m_previewMetricsTimer.stop();
     m_previewFrameDirty.store(false, std::memory_order_relaxed);
 
     if (!m_mediaPlayer)
@@ -211,6 +225,14 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     libvlc_audio_set_volume(m_mediaPlayer, m_volume);
     libvlc_audio_set_mute(m_mediaPlayer, m_muted ? 1 : 0);
 
+    if (m_previewMode) {
+        m_previewClock.start();
+        m_previewDecodedFrames.store(0, std::memory_order_relaxed);
+        m_previewFirstFrameMs.store(-1, std::memory_order_relaxed);
+        m_previewFramesLastSample = 0;
+        m_previewSampleElapsedMs = 0;
+        m_previewDecodedFps = 0.0;
+    }
     m_status = QStringLiteral("Opening media with libVLC...");
     m_receivedFrame.store(false, std::memory_order_relaxed);
     m_lastPolledState = libvlc_NothingSpecial;
@@ -231,7 +253,10 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
     m_lastError.clear();
     m_status = QStringLiteral("Playback started - waiting for first video frame...");
     m_pollTimer.start();
-    if (m_previewMode) m_previewFrameTimer.start();
+    if (m_previewMode) {
+        m_previewFrameTimer.start();
+        m_previewMetricsTimer.start();
+    }
     if (!m_previewMode) forceActiveFocus();
     update();
     return true;
@@ -562,6 +587,19 @@ void VlcVideoItem::pollPlaybackState()
     update();
 }
 
+QString VlcVideoItem::previewDiagnostics() const
+{
+    if (!m_previewMode) return QStringLiteral("previewMode=false");
+    return QStringLiteral("previewMode=true\\nstartupMs=%1\\nfirstFrameMs=%2\\ndecodedFrames=%3\\ndecoderCallbackFpsApprox=%4\\npreviewVisible=%5\\npreviewPaused=%6\\npreviewSize=%7x%8\\nframeBufferSize=%9x%10")
+        .arg(m_previewClock.isValid() ? m_previewClock.elapsed() : -1)
+        .arg(m_previewFirstFrameMs.load(std::memory_order_relaxed))
+        .arg(m_previewDecodedFrames.load(std::memory_order_relaxed))
+        .arg(m_previewDecodedFps, 0, 'f', 1)
+        .arg(isVisible() ? QStringLiteral("yes") : QStringLiteral("no"))
+        .arg(previewIsPaused() ? QStringLiteral("yes") : QStringLiteral("no"))
+        .arg(int(width())).arg(int(height())).arg(m_videoWidth).arg(m_videoHeight);
+}
+
 void VlcVideoItem::paint(QPainter* painter)
 {
     if (!m_previewMode)
@@ -707,6 +745,9 @@ void VlcVideoItem::displayVideo(void* opaque, void* picture)
     auto* item = static_cast<VlcVideoItem*>(opaque);
     const bool firstFrame = !item->m_receivedFrame.exchange(true, std::memory_order_relaxed);
     if (item->m_previewMode) {
+        item->m_previewDecodedFrames.fetch_add(1, std::memory_order_relaxed);
+        if (firstFrame && item->m_previewClock.isValid())
+            item->m_previewFirstFrameMs.store(int(item->m_previewClock.elapsed()), std::memory_order_relaxed);
         // VLC callbacks run off the GUI thread. Only signal a pending frame:
         // the GUI timer coalesces bursts and redraws at up to ~30 FPS.
         item->m_previewFrameDirty.store(true, std::memory_order_release);
