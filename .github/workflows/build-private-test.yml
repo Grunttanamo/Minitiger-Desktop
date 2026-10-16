@@ -110,6 +110,23 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Repair Windows tool provisioning without winget
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # GitHub hosted runners provide Chocolatey and MSVC, but winget's
+          # package source is not reliable in non-interactive runner sessions.
+          choco install cmake ninja 7zip innosetup --yes --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey dependency setup failed: $LASTEXITCODE" }
+          python -m pip install --disable-pip-version-check aqtinstall
+          if ($LASTEXITCODE -ne 0) { throw "aqtinstall pip installation failed: $LASTEXITCODE" }
+          $scripts = (python -c "import sysconfig; print(sysconfig.get_path('scripts'))").Trim()
+          if (-not (Test-Path (Join-Path $scripts 'aqt.exe'))) {
+              throw "aqt.exe not found in Python scripts: $scripts"
+          }
+          "$scripts" >> $env:GITHUB_PATH
+          "MINITIGER_CI_TOOLS_READY=1" >> $env:GITHUB_ENV
+
       - name: Prepare Windows build dependencies
         shell: cmd
         run: |
