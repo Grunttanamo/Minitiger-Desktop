@@ -128,6 +128,13 @@ jobs:
           "$scripts" >> $env:GITHUB_PATH
           "MINITIGER_CI_TOOLS_READY=1" >> $env:GITHUB_ENV
 
+      - name: Show detected Visual Studio toolchain
+        shell: cmd
+        run: |
+          call dev\windows\common.bat
+          if not defined VCVARS exit /b 1
+          echo Using MSVC: %VCVARS%
+
       - name: Prepare Windows build dependencies
         shell: cmd
         run: |
