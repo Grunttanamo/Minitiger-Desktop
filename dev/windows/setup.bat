@@ -24,15 +24,15 @@ if not exist "!PROJECT_ROOT!\external\mpvqt\src\mpvabstractitem.cpp" (
 )
 
 echo [1/15] Installing CMake...
-winget install --id Kitware.CMake --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id Kitware.CMake --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: CMake may already be installed or winget may have returned a non-zero update code.
 
 echo [2/15] Installing Ninja...
-winget install --id Ninja-build.Ninja --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id Ninja-build.Ninja --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Ninja may already be installed or winget may have returned a non-zero update code.
 
 echo [3/15] Installing 7-Zip...
-winget install --id 7zip.7zip --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id 7zip.7zip --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: 7-Zip may already be installed or winget may have returned a non-zero update code.
 
 if not exist "!SEVENZIP!" (
@@ -49,7 +49,7 @@ if not exist "!SEVENZIP!" (
 )
 
 echo [4/15] Installing aqtinstall...
-winget install --id miurahr.aqtinstall --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id miurahr.aqtinstall --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: aqtinstall may already be installed or winget may have returned a non-zero update code.
 
 REM winget can update PATH only for new shells. Locate aqt explicitly so this
@@ -75,7 +75,7 @@ if not defined AQT_EXE (
 )
 
 echo [5/15] Installing Visual Studio 2022 Build Tools...
-winget install --id Microsoft.VisualStudio.2022.BuildTools ^
+if not defined MINITIGER_CI_TOOLS_READY winget install --id Microsoft.VisualStudio.2022.BuildTools ^
   --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" ^
   --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Build Tools may already be installed; checking the existing installation.
@@ -91,7 +91,7 @@ if not defined VCVARS (
 echo [6/15] MSVC provides dumpbin/lib; separate MinGW install is not required.
 
 echo [7/15] Installing Inno Setup...
-winget install --id JRSoftware.InnoSetup --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id JRSoftware.InnoSetup --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Inno Setup may already be installed or winget may have returned a non-zero update code.
 
 echo [8/15] Installing Qt !QT_VERSION!...
@@ -271,7 +271,7 @@ if errorlevel 1 (
 )
 
 echo [15/15] Installing Node.js LTS for bundled Minitiger Web...
-winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
+if not defined MINITIGER_CI_TOOLS_READY winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
 if errorlevel 1 echo Warning: Node.js LTS may already be installed or winget may have returned a non-zero update code.
 
 echo.
