@@ -15,7 +15,7 @@ REM Minitiger Web is the authoritative frontend source for the desktop bundle.
 set MINITIGER_WEB_REPO=https://github.com/Grunttanamo/Minitiger-Desktop-Web.git
 REM TEST build 65: libVLC-only native trailer preview, MPV films unchanged, preview opacity repair
 REM TEST 69: VLC decoder versus Qt rendering instrumentation
-REM TEST: in-flow virtual library toolbar prevents title and arrow overlap; no change to video
+REM TEST: library navigation reuses custom media row headers; remove overlapping CSS layout hacks
 set MINITIGER_WEB_BRANCH=test/banner-stable-111-20261016
 
 set SCRIPT_DIR=%~dp0
