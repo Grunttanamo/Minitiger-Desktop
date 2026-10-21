@@ -68,3 +68,5 @@ set "PATH=%DEPS_DIR%\qt\%QT_VERSION%\msvc2022_64\bin;%PATH%"
 goto :eof
 
 REM Desktop seasonal Halloween/Christmas and persistent banner audio TEST 2026-10-21.
+
+REM Desktop seasonal roaming effects and accent arrows TEST 2026-10-21 follow-up.
