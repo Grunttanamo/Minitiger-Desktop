@@ -3,7 +3,7 @@ name: Publish Minitiger STABLE update
 on:
   push:
     branches:
-      - release/promote-1-1-5-20261018
+      - release/promote-1-1-6-20261021
     paths:
       - '.github/workflows/publish-private-update.yml'
   workflow_dispatch:
@@ -35,13 +35,13 @@ jobs:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $test = gh api 'repos/Grunttanamo/Minitiger-Desktop-Updates/releases/tags/desktop-test-v1.1.5-b89' | ConvertFrom-Json
+          $test = gh api 'repos/Grunttanamo/Minitiger-Desktop-Updates/releases/tags/desktop-test-v1.1.6-b97' | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw 'Approved TEST release not found.' }
-          $run = gh api 'repos/Grunttanamo/Minitiger-Desktop/actions/runs/39150020246' | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne '45665d37a725ddc3b45769324cba5115375529f5') {
+          $run = gh api 'repos/Grunttanamo/Minitiger-Desktop/actions/runs/39630624294' | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne '9c6827d9fc38a6c07f9491c9044102d8649e92b8') {
             throw 'Approved TEST build was not successful or source mismatch.'
           }
-          Write-Host 'Approved TEST 1.1.5-b89 and Desktop source verified.'
+          Write-Host 'Approved TEST 1.1.6-b97 and Desktop source verified.'
       - name: Resolve latest tested candidate
         id: release
         shell: pwsh
