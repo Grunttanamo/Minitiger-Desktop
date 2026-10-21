@@ -73,3 +73,4 @@ REM Desktop seasonal roaming effects and accent arrows TEST 2026-10-21 follow-up
 REM TEST 1.1.6: anchored Halloween pumpkins and temporary global seasonal palette 2026-10-21.
 REM 1.1.6 TEST follow-up: shuffled opaque bats and banner info readability 2026-10-21.
 REM 1.1.6 TEST: replace gradient info shadow with solid bounded text panel 2026-10-21.
+REM 1.1.6 TEST: admin global banner info box opacity and edge softness settings 2026-10-21.
