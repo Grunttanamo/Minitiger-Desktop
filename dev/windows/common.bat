@@ -70,3 +70,4 @@ goto :eof
 REM Desktop seasonal Halloween/Christmas and persistent banner audio TEST 2026-10-21.
 
 REM Desktop seasonal roaming effects and accent arrows TEST 2026-10-21 follow-up.
+REM TEST 1.1.6: anchored Halloween pumpkins and temporary global seasonal palette 2026-10-21.
