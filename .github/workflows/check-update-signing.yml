@@ -1,0 +1,28 @@
+name: Check update signing
+
+# Quick self-test (about a minute): signs a dummy package with the
+# MINITIGER_UPDATE_SIGNING_KEY secret and verifies it against
+# bundle/update-signing-public-key.txt, exactly like the release workflows.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Sign and verify a dummy package
+        shell: pwsh
+        env:
+          MINITIGER_UPDATE_SIGNING_KEY: ${{ secrets.MINITIGER_UPDATE_SIGNING_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $signature = & dev\windows\sign-update-package.ps1 -PackageType installer -Version 0.0.0 -Build 1 -Sha256 ('0' * 64)
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ([Convert]::FromBase64String($signature).Length -ne 64) { Write-Host '::error title=Update signing::Unexpected signature length.'; exit 1 }
+          Write-Host "::notice title=Update signing::Signing key and public key match."

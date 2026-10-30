@@ -197,43 +197,12 @@ jobs:
           $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           $portableHash = (Get-FileHash -Algorithm SHA256 $portable.FullName).Hash.ToLowerInvariant()
 
-          # Sign each package for the Desktop client (see kMinitigerUpdatePublicKey).
-          if (-not $env:MINITIGER_UPDATE_SIGNING_KEY) { throw 'MINITIGER_UPDATE_SIGNING_KEY secret is missing; refusing to publish unsigned update packages.' }
-          $signingKey = [System.Security.Cryptography.ECDsa]::Create()
-          $signingKey.ImportFromPem($env:MINITIGER_UPDATE_SIGNING_KEY)
-          if ($signingKey.KeySize -ne 256) { throw 'The update signing key must be an ECDSA P-256 key.' }
-          function Get-MinitigerSignature([string]$packageType, [string]$sha256) {
-              # Must match minitigerUpdateSignedMessage() in src/system/SystemComponent.cpp.
-              $message = "minitiger-desktop-update/v1`n$packageType`n$version`n$build`n$sha256"
-              $signature = $signingKey.SignData(
-                  [System.Text.Encoding]::UTF8.GetBytes($message),
-                  [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-                  [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)
-              return [Convert]::ToBase64String($signature)
-          }
-          # Self-check against the public key the client is built with.
-          $publicKeyRaw = [Convert]::FromBase64String((Get-Content bundle\update-signing-public-key.txt -Raw).Trim())
-          if ($publicKeyRaw.Length -ne 64) { throw 'bundle/update-signing-public-key.txt must hold the 64-byte P-256 point.' }
-          $publicParameters = [System.Security.Cryptography.ECParameters]::new()
-          $publicParameters.Curve = [System.Security.Cryptography.ECCurve+NamedCurves]::nistP256
-          $point = [System.Security.Cryptography.ECPoint]::new()
-          $point.X = [byte[]]$publicKeyRaw[0..31]
-          $point.Y = [byte[]]$publicKeyRaw[32..63]
-          $publicParameters.Q = $point
-          $verifier = [System.Security.Cryptography.ECDsa]::Create($publicParameters)
-          function Assert-MinitigerSignature([string]$packageType, [string]$sha256, [string]$signature) {
-              $message = "minitiger-desktop-update/v1`n$packageType`n$version`n$build`n$sha256"
-              $ok = $verifier.VerifyData(
-                  [System.Text.Encoding]::UTF8.GetBytes($message),
-                  [Convert]::FromBase64String($signature),
-                  [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-                  [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)
-              if (-not $ok) { throw "Signature for the $packageType package does not match bundle/update-signing-public-key.txt." }
-          }
-          $installerSignature = Get-MinitigerSignature 'installer' $installerHash
-          $portableSignature = Get-MinitigerSignature 'portable' $portableHash
-          Assert-MinitigerSignature 'installer' $installerHash $installerSignature
-          Assert-MinitigerSignature 'portable' $portableHash $portableSignature
+          # Sign each package for the Desktop client; the script also checks
+          # the signature against bundle/update-signing-public-key.txt.
+          $installerSignature = & dev\windows\sign-update-package.ps1 -PackageType installer -Version $version -Build $build -Sha256 $installerHash
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $portableSignature = & dev\windows\sign-update-package.ps1 -PackageType portable -Version $version -Build $build -Sha256 $portableHash
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
           $manifest = [ordered]@{
               version = $version
