@@ -3,6 +3,9 @@ name: Publish Minitiger STABLE update
 on:
   workflow_dispatch:
     inputs:
+      approved_test_run:
+        description: "Run ID of the approved 'Build Minitiger TEST' run (from its URL)"
+        required: true
       notes:
         description: "Stable update notes"
         required: false
@@ -28,13 +31,16 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
+          APPROVED_RUN: ${{ inputs.approved_test_run }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $run = gh api 'repos/Grunttanamo/Minitiger-Desktop/actions/runs/41017271264' | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne '23e029075e69f6ebc40125eef7c8f0d1ab80574e') {
-            throw 'Approved TEST build was not successful or source mismatch.'
-          }
-          Write-Host 'Approved TEST 1.1.7 (run 41017271264) and Desktop source verified.'
+          if ($env:APPROVED_RUN -notmatch '^\d+$') { throw 'approved_test_run must be the numeric run ID.' }
+          $run = gh api "repos/${{ github.repository }}/actions/runs/$($env:APPROVED_RUN)" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Approved TEST run not found.' }
+          if ($run.name -ne 'Build Minitiger TEST') { throw "Run $($env:APPROVED_RUN) is '$($run.name)', not a TEST build." }
+          if ($run.conclusion -ne 'success') { throw "Approved TEST run did not succeed ($($run.conclusion))." }
+          "APPROVED_SHA=$($run.head_sha)" >> $env:GITHUB_ENV
+          Write-Host "Approved TEST run $($env:APPROVED_RUN) built Desktop source $($run.head_sha)."
       - name: Resolve latest tested candidate
         id: release
         shell: pwsh
@@ -88,8 +94,7 @@ jobs:
           if ($sourceCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop source commit.' }
           if ($webCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop-Web source commit.' }
           # Promote only the exact TEST build that was approved above.
-          if ($sourceCommit -ne '23e029075e69f6ebc40125eef7c8f0d1ab80574e') { throw "Latest TEST $($test.tagName) was built from $sourceCommit, not the approved source." }
-          if ($webCommit -ne '0ac1d76d5235f9ac0e57b81b4a1b1cf224b7a77d') { throw "Latest TEST $($test.tagName) bundles Desktop-Web $webCommit, not the approved web source." }
+          if ($sourceCommit -ne $env:APPROVED_SHA) { throw "Latest TEST $($test.tagName) was built from $sourceCommit, not from the approved run ($($env:APPROVED_SHA))." }
 
           $build = $maxBuild + 1
           "version=$version" >> $env:GITHUB_OUTPUT

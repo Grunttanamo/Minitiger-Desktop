@@ -1,13 +1,6 @@
 name: Build Minitiger TEST
 
 on:
-  push:
-    branches:
-      - test/mpv-native-trailer-preview-20261014
-      - test/vlc-rendering-repair-20261016
-    paths:
-      - 'dev/windows/common.bat'
-      - '.github/workflows/build-private-test.yml'
   workflow_dispatch:
     inputs:
       notes:
