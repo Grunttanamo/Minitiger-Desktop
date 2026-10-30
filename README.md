@@ -11,11 +11,13 @@ Minitiger Desktop is based on [Jellyfin Desktop](https://github.com/jellyfin/jel
 
 ## Current status
 
-Current application version:
+Current stable version:
 
 ```text
-2.0.0-dev
+1.1.6
 ```
+
+Release builds write the exact version to `VERSION` in CI; local builds use the value committed there.
 
 Primary Desktop code:
 
@@ -28,7 +30,7 @@ Bundled Desktop frontend:
 
 ```text
 Repository: Grunttanamo/Minitiger-Desktop-Web
-Branch: minitiger-desktop-v12.1
+Branch: set by MINITIGER_WEB_BRANCH in dev/windows/common.bat
 ```
 
 The older public Web / Sidecar project remains separate:
