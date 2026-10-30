@@ -232,8 +232,7 @@ bool VlcVideoItem::playSource(const QString& source, qint64 startMilliseconds, b
         &VlcVideoItem::setupVideoFormat,
         &VlcVideoItem::cleanupVideoFormat);
 
-    // Phase 1.2 test default: intentionally start below VLC's full volume.
-    // This will later be replaced by Minitiger/Jellyfin's stored device volume.
+    // The web player applies the saved Jellyfin volume once playback starts.
     libvlc_audio_set_volume(m_mediaPlayer, m_volume);
     libvlc_audio_set_mute(m_mediaPlayer, m_muted ? 1 : 0);
 
@@ -752,11 +751,13 @@ void* VlcVideoItem::lockVideo(void* opaque, void** planes)
     auto* item = static_cast<VlcVideoItem*>(opaque);
     item->m_frameMutex.lock();
 
+    // VLC always calls unlockVideo() afterwards and writes a full picture
+    // into *planes, so keep the mutex held and never hand out nullptr.
     if (item->m_frame.isNull())
     {
-        item->m_frameMutex.unlock();
-        *planes = nullptr;
-        return nullptr;
+        item->m_scratchFrame.resize(qMax<qsizetype>(1, item->m_frameBufferBytes));
+        *planes = item->m_scratchFrame.data();
+        return item;
     }
 
     *planes = item->m_frame.bits();
@@ -847,6 +848,7 @@ unsigned VlcVideoItem::setupVideoFormat(void** opaque,
         }
 
         item->m_frame.fill(Qt::black);
+        item->m_frameBufferBytes = item->m_frame.sizeInBytes();
         *pitches = static_cast<unsigned>(item->m_frame.bytesPerLine());
         *lines = *height;
     }

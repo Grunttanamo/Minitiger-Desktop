@@ -93,6 +93,9 @@ private:
     libvlc_media_player_t* m_mediaPlayer = nullptr;
 
     QImage m_frame;
+    // Fallback target for a decode callback without a frame buffer.
+    QByteArray m_scratchFrame;
+    qsizetype m_frameBufferBytes = 0;
     QMutex m_frameMutex;
     QString m_lastError;
     QString m_source;
@@ -102,7 +105,7 @@ private:
     std::atomic_int m_requestedOutputHeight { 0 };
     unsigned m_videoWidth = 0;
     unsigned m_videoHeight = 0;
-    int m_volume = 40;
+    int m_volume = 100;
     bool m_previewMode = false;
     bool m_previewLoop = false;
     bool m_muted = false;
