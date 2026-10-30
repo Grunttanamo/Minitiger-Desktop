@@ -1,11 +1,6 @@
 name: Publish Minitiger STABLE update
 
 on:
-  push:
-    branches:
-      - release/promote-1-1-6-20261021
-    paths:
-      - '.github/workflows/publish-private-update.yml'
   workflow_dispatch:
     inputs:
       notes:
@@ -35,13 +30,11 @@ jobs:
           GH_TOKEN: ${{ secrets.MINITIGER_UPDATE_PUBLISH_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $test = gh api 'repos/Grunttanamo/Minitiger-Desktop-Updates/releases/tags/desktop-test-v1.1.6-b97' | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw 'Approved TEST release not found.' }
-          $run = gh api 'repos/Grunttanamo/Minitiger-Desktop/actions/runs/39630624294' | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne '9c6827d9fc38a6c07f9491c9044102d8649e92b8') {
+          $run = gh api 'repos/Grunttanamo/Minitiger-Desktop/actions/runs/41017271264' | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.head_sha -ne '23e029075e69f6ebc40125eef7c8f0d1ab80574e') {
             throw 'Approved TEST build was not successful or source mismatch.'
           }
-          Write-Host 'Approved TEST 1.1.6-b97 and Desktop source verified.'
+          Write-Host 'Approved TEST 1.1.7 (run 41017271264) and Desktop source verified.'
       - name: Resolve latest tested candidate
         id: release
         shell: pwsh
@@ -94,6 +87,9 @@ jobs:
           if ($version -ne $expectedVersion) { throw "Latest TEST is $version but next stable must be $expectedVersion." }
           if ($sourceCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop source commit.' }
           if ($webCommit -notmatch '^[0-9a-f]{40}$') { throw 'TEST manifest has no valid Desktop-Web source commit.' }
+          # Promote only the exact TEST build that was approved above.
+          if ($sourceCommit -ne '23e029075e69f6ebc40125eef7c8f0d1ab80574e') { throw "Latest TEST $($test.tagName) was built from $sourceCommit, not the approved source." }
+          if ($webCommit -ne '0ac1d76d5235f9ac0e57b81b4a1b1cf224b7a77d') { throw "Latest TEST $($test.tagName) bundles Desktop-Web $webCommit, not the approved web source." }
 
           $build = $maxBuild + 1
           "version=$version" >> $env:GITHUB_OUTPUT
