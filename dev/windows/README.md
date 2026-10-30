@@ -98,6 +98,20 @@ After building, start Minitiger Desktop normally and connect it to the **normal 
 dev\windows\test.bat
 ```
 
+## Update signing
+
+Private updates are only installed when their release signature is valid.
+The release workflows sign every package (ECDSA P-256 over package type,
+version, build and SHA-256) with the `MINITIGER_UPDATE_SIGNING_KEY` secret
+and write the signature into `minitiger-update.json`. The companion plugin
+passes it through, and the client verifies it with the public key in
+`bundle/update-signing-public-key.txt`, which CMake compiles into the build.
+The workflows check their own signatures against that file as well.
+
+Keep a backup of the private key. Installed clients only accept updates
+signed with the key they were built with, so a lost key means a new key has
+to be shipped in a release that clients install by hand.
+
 ## What the setup scripts install
 
 `setup.bat` prepares the Jellyfin Desktop build toolchain:

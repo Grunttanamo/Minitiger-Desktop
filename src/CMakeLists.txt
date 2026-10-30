@@ -243,7 +243,16 @@ endif()
 
 # Delay-load libmpv on Windows for runtime AVX2 fallback
 if(WIN32)
-  target_link_libraries(jmp_core delayimp.lib)
+  target_link_libraries(jmp_core delayimp.lib bcrypt)
+
+  # Public key the private updater verifies release signatures with. The
+  # release workflows check their signatures against the same file.
+  file(READ "${CMAKE_SOURCE_DIR}/bundle/update-signing-public-key.txt" MINITIGER_UPDATE_PUBLIC_KEY)
+  string(STRIP "${MINITIGER_UPDATE_PUBLIC_KEY}" MINITIGER_UPDATE_PUBLIC_KEY)
+  if(NOT MINITIGER_UPDATE_PUBLIC_KEY MATCHES "^[A-Za-z0-9+/]+=*$")
+    message(FATAL_ERROR "bundle/update-signing-public-key.txt must contain the base64 update signing public key.")
+  endif()
+  target_compile_definitions(jmp_core PRIVATE MINITIGER_UPDATE_PUBLIC_KEY="${MINITIGER_UPDATE_PUBLIC_KEY}")
   target_link_options(jmp_core PRIVATE /DELAYLOAD:libmpv-2.dll)
 endif()
 

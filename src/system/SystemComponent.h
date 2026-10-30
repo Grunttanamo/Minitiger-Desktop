@@ -80,13 +80,15 @@ public:
 
   // Private Minitiger Windows updater. The URL is a short-lived relay URL
   // issued by the authenticated companion plugin; GitHub credentials never
-  // enter the desktop client.
+  // enter the desktop client. The package is only accepted with a valid
+  // release signature (see kMinitigerUpdatePublicKey).
   Q_INVOKABLE bool applyMinitigerUpdate(
     const QString& url,
     const QString& sha256,
     const QString& packageType,
     int targetBuild,
-    const QString& targetVersion);
+    const QString& targetVersion,
+    const QString& signature);
 
   // called by the web-client when everything is properly inited
   Q_INVOKABLE void hello(const QString& version);

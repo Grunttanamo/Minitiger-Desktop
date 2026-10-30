@@ -24,11 +24,17 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QUrl>
+#include <QCryptographicHash>
 #include "Globals.h"
 #ifdef MINITIGER_ENABLE_VLC
 #include "player/VlcVideoItem.h"
 #endif
 #include <functional>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <bcrypt.h>
+#endif
 
 #include <QtWebEngineCore/qtwebenginecoreglobal.h>
 
@@ -726,6 +732,70 @@ void SystemComponent::fetchPageForCSPWorkaround(QString url)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
+#ifdef Q_OS_WIN
+// Public half of the Minitiger release signing key: base64 of the raw
+// ECDSA P-256 point (X || Y, 64 bytes), read by CMake from
+// bundle/update-signing-public-key.txt. The private half exists only as the
+// MINITIGER_UPDATE_SIGNING_KEY secret of the release workflows.
+#ifndef MINITIGER_UPDATE_PUBLIC_KEY
+#error "MINITIGER_UPDATE_PUBLIC_KEY is not defined; see src/CMakeLists.txt."
+#endif
+static const char kMinitigerUpdatePublicKey[] = MINITIGER_UPDATE_PUBLIC_KEY;
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Must match the message the release workflows sign for each package.
+static QByteArray minitigerUpdateSignedMessage(
+  const QString& packageType,
+  const QString& version,
+  int build,
+  const QString& sha256)
+{
+  return QString("minitiger-desktop-update/v1\n%1\n%2\n%3\n%4")
+      .arg(packageType, version.trimmed(), QString::number(build), sha256.trimmed().toLower())
+      .toUtf8();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Verifies an ECDSA P-256 / SHA-256 signature (r || s, 64 bytes) with Windows CNG.
+static bool verifyMinitigerUpdateSignature(const QByteArray& message, const QString& signatureBase64)
+{
+  const QByteArray publicKey = QByteArray::fromBase64(kMinitigerUpdatePublicKey);
+  const QByteArray signature = QByteArray::fromBase64(signatureBase64.trimmed().toLatin1());
+  if (publicKey.size() != 64 || signature.size() != 64)
+    return false;
+
+  QByteArray blob(sizeof(BCRYPT_ECCKEY_BLOB), '\0');
+  auto* header = reinterpret_cast<BCRYPT_ECCKEY_BLOB*>(blob.data());
+  header->dwMagic = BCRYPT_ECDSA_PUBLIC_P256_MAGIC;
+  header->cbKey = 32;
+  blob.append(publicKey);
+
+  QByteArray digest = QCryptographicHash::hash(message, QCryptographicHash::Sha256);
+  QByteArray signatureBytes = signature;
+
+  bool valid = false;
+  BCRYPT_ALG_HANDLE algorithm = nullptr;
+  if (BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_ECDSA_P256_ALGORITHM, nullptr, 0)))
+  {
+    BCRYPT_KEY_HANDLE key = nullptr;
+    if (BCRYPT_SUCCESS(BCryptImportKeyPair(algorithm, nullptr, BCRYPT_ECCPUBLIC_BLOB, &key,
+                                           reinterpret_cast<PUCHAR>(blob.data()),
+                                           static_cast<ULONG>(blob.size()), 0)))
+    {
+      valid = BCRYPT_SUCCESS(BCryptVerifySignature(key, nullptr,
+                                                   reinterpret_cast<PUCHAR>(digest.data()),
+                                                   static_cast<ULONG>(digest.size()),
+                                                   reinterpret_cast<PUCHAR>(signatureBytes.data()),
+                                                   static_cast<ULONG>(signatureBytes.size()), 0));
+      BCryptDestroyKey(key);
+    }
+    BCryptCloseAlgorithmProvider(algorithm, 0);
+  }
+  return valid;
+}
+#endif
+
+/////////////////////////////////////////////////////////////////////////////////////////
 static QString minitigerPowerShellLiteral(QString value)
 {
   value.replace("'", "''");
@@ -738,7 +808,8 @@ bool SystemComponent::applyMinitigerUpdate(
   const QString& sha256,
   const QString& packageType,
   int targetBuild,
-  const QString& targetVersion)
+  const QString& targetVersion,
+  const QString& signature)
 {
 #if !defined(Q_OS_WIN)
   Q_UNUSED(url);
@@ -746,6 +817,7 @@ bool SystemComponent::applyMinitigerUpdate(
   Q_UNUSED(packageType);
   Q_UNUSED(targetBuild);
   Q_UNUSED(targetVersion);
+  Q_UNUSED(signature);
   return false;
 #else
   if (!SettingsComponent::Get().value(SETTINGS_SECTION_MAIN, "checkForUpdates").toBool())
@@ -774,6 +846,17 @@ bool SystemComponent::applyMinitigerUpdate(
   if (!hashExpression.match(sha256.trimmed()).hasMatch())
   {
     qWarning() << "Minitiger update rejected because SHA-256 is invalid.";
+    return false;
+  }
+
+  // The SHA-256 and the URL both come from the Jellyfin server. Only the
+  // release signature proves that this exact package was published by the
+  // Minitiger release workflow; the updater script then enforces the hash.
+  if (!verifyMinitigerUpdateSignature(
+        minitigerUpdateSignedMessage(normalizedPackage, targetVersion, targetBuild, sha256),
+        signature))
+  {
+    qWarning() << "Minitiger update rejected because its release signature is missing or invalid.";
     return false;
   }
 
