@@ -16,9 +16,12 @@
 #include <QDebug>
 #include <QSettings>
 #include <QTimer>
+#include <QJsonObject>
+#include <QMessageBox>
 
 #include "shared/Names.h"
 #include "system/SystemComponent.h"
+#include "system/MinitigerUpdater.h"
 #include "Paths.h"
 #include "core/ProfileManager.h"
 #include "player/PlayerComponent.h"
@@ -196,6 +199,10 @@ int main(int argc, char *argv[])
       "Play a local file or URL with the embedded libVLC surface.");
     vlcTestOption.setValueName("source");
 
+    auto updateWindowDemoOption = QCommandLineOption(
+      "update-window-demo",
+      "Show the update progress window without installing anything.");
+
     parser.addOption(scaleOption);
     parser.addOption(devOption);
     parser.addOption(platformOption);
@@ -207,6 +214,7 @@ int main(int argc, char *argv[])
     parser.addOption(deleteProfileOption);
     parser.addOption(createProfileOption);
     parser.addOption(vlcTestOption);
+    parser.addOption(updateWindowDemoOption);
 
     char **newArgv = appendCommandLineArguments(argc, argv, g_qtFlags);
     int newArgc = argc + static_cast<int>(g_qtFlags.size());
@@ -543,6 +551,28 @@ int main(int argc, char *argv[])
 
 #if defined(Q_OS_MAC) && defined(NDEBUG)
     PFMoveToApplicationsFolderIfNecessary();
+#endif
+
+#ifdef Q_OS_WIN
+    if (parser.isSet(updateWindowDemoOption))
+    {
+      MinitigerUpdater::start(QJsonObject(), true);
+      Log::Cleanup();
+      return EXIT_SUCCESS;
+    }
+
+    // An update replaces this installation right now. Starting another
+    // instance would get in its way; the updater restarts Minitiger itself.
+    if (MinitigerUpdater::isRunning())
+    {
+      QMessageBox::information(
+        nullptr,
+        QStringLiteral("Minitiger Desktop"),
+        QStringLiteral("Minitiger wird gerade aktualisiert.\n\n"
+                       "Bitte warte, bis das Update fertig ist – Minitiger startet danach von selbst."));
+      Log::Cleanup();
+      return EXIT_SUCCESS;
+    }
 #endif
 
     UniqueApplication* uniqueApp = new UniqueApplication(&app);

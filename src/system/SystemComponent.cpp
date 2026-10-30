@@ -40,6 +40,7 @@
 
 #include "input/InputComponent.h"
 #include "SystemComponent.h"
+#include "MinitigerUpdater.h"
 #ifdef MINITIGER_BUNDLED_WEB
 #include "BundledWebServer.h"
 #endif
@@ -583,15 +584,8 @@ QString SystemComponent::getNativeShellScript()
   clientData.insert("updateBuild", Version::GetUpdateBuildNumber());
   clientData.insert("portable", Paths::isPortableMode());
 
-  int failedUpdateBuild = 0;
-  QFile failedUpdateFile(Paths::globalDataDir("minitiger-update-failed-build.txt"));
-  if (failedUpdateFile.open(QIODevice::ReadOnly | QIODevice::Text))
-  {
-    bool ok = false;
-    const int parsed = QString::fromUtf8(failedUpdateFile.readAll()).trimmed().toInt(&ok);
-    if (ok && parsed > 0)
-      failedUpdateBuild = parsed;
-  }
+  // Only reported once a build has failed several times; see MinitigerUpdater.
+  const int failedUpdateBuild = MinitigerUpdater::failedBuild();
   clientData.insert("updateFailedBuild", failedUpdateBuild);
 
   clientData.insert("userAgent", QJsonValue::fromVariant(getUserAgent()));
@@ -796,13 +790,6 @@ static bool verifyMinitigerUpdateSignature(const QByteArray& message, const QStr
 #endif
 
 /////////////////////////////////////////////////////////////////////////////////////////
-static QString minitigerPowerShellLiteral(QString value)
-{
-  value.replace("'", "''");
-  return "'" + value + "'";
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
 bool SystemComponent::applyMinitigerUpdate(
   const QString& url,
   const QString& sha256,
@@ -892,115 +879,27 @@ bool SystemComponent::applyMinitigerUpdate(
   const QString updateRoot =
     QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
       .filePath("MinitigerDesktopUpdate");
-
-  if (!QDir().mkpath(updateRoot))
-  {
-    qWarning() << "Could not create Minitiger update temp directory:" << updateRoot;
-    return false;
-  }
-
   const QString buildText = QString::number(targetBuild);
   const QString extension = normalizedPackage == "portable" ? ".zip" : ".exe";
-  const QString packagePath =
-    QDir(updateRoot).filePath("Minitiger-Desktop-update-" + buildText + extension);
-  const QString stagePath =
-    QDir(updateRoot).filePath("stage-" + buildText);
-  const QString scriptPath =
-    QDir(updateRoot).filePath("apply-" + buildText + ".ps1");
-
   const QString appDir = QCoreApplication::applicationDirPath();
-  const QString appExe =
-    QDir(appDir).filePath("Minitiger Desktop.exe");
-  const QString logPath =
-    Paths::globalDataDir("minitiger-update.log");
-  const QString failureMarker =
-    Paths::globalDataDir("minitiger-update-failed-build.txt");
-  const qint64 currentPid =
-    QCoreApplication::applicationPid();
 
-  QStringList script;
-  script
-    << "$ErrorActionPreference = 'Stop'"
-    << "$ProgressPreference = 'SilentlyContinue'"
-    << ("$url = " + minitigerPowerShellLiteral(updateUrl.toString()))
-    << ("$expectedHash = " + minitigerPowerShellLiteral(sha256.trimmed().toLower()))
-    << ("$packageType = " + minitigerPowerShellLiteral(normalizedPackage))
-    << ("$packagePath = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(packagePath)))
-    << ("$stagePath = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(stagePath)))
-    << ("$appDir = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(appDir)))
-    << ("$appExe = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(appExe)))
-    << ("$logPath = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(logPath)))
-    << ("$failureMarker = " + minitigerPowerShellLiteral(QDir::toNativeSeparators(failureMarker)))
-    << ("$targetPid = " + QString::number(currentPid))
-    << ("$targetBuild = " + buildText)
-    << ("$targetVersion = " + minitigerPowerShellLiteral(targetVersion))
-    << ""
-    << "function Write-MinitigerUpdateLog([string]$message) {"
-    << "  $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'"
-    << "  Add-Content -LiteralPath $logPath -Value (\"[$timestamp] $message\") -Encoding UTF8"
-    << "}"
-    << ""
-    << "try {"
-    << "  Write-MinitigerUpdateLog (\"Starting update to $targetVersion build $targetBuild ($packageType).\")"
-    << "  if (Test-Path -LiteralPath $packagePath) { Remove-Item -LiteralPath $packagePath -Force }"
-    << "  Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $packagePath"
-    << "  $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $packagePath).Hash.ToLowerInvariant()"
-    << "  if ($actualHash -ne $expectedHash) { throw \"SHA-256 mismatch. Expected $expectedHash but got $actualHash\" }"
-    << "  Write-MinitigerUpdateLog 'Download and SHA-256 validation completed.'"
-    << "  Wait-Process -Id $targetPid -ErrorAction SilentlyContinue"
-    << ""
-    << "  if ($packageType -eq 'portable') {"
-    << "    if (Test-Path -LiteralPath $stagePath) { Remove-Item -LiteralPath $stagePath -Recurse -Force }"
-    << "    Expand-Archive -LiteralPath $packagePath -DestinationPath $stagePath -Force"
-    << "    $stagedExe = Join-Path $stagePath 'Minitiger Desktop.exe'"
-    << "    if (-not (Test-Path -LiteralPath $stagedExe)) { throw 'Portable update archive does not contain Minitiger Desktop.exe.' }"
-    << "    Get-ChildItem -LiteralPath $stagePath -Force | ForEach-Object {"
-    << "      if ($_.Name -notin @('data', 'cache')) {"
-    << "        Copy-Item -LiteralPath $_.FullName -Destination $appDir -Recurse -Force"
-    << "      }"
-    << "    }"
-    << "  } else {"
-    << "    $installer = Start-Process -FilePath $packagePath -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS') -Wait -PassThru"
-    << "    if ($installer.ExitCode -ne 0) { throw \"Installer returned exit code $($installer.ExitCode).\" }"
-    << "  }"
-    << ""
-    << "  if (Test-Path -LiteralPath $failureMarker) { Remove-Item -LiteralPath $failureMarker -Force }"
-    << "  Write-MinitigerUpdateLog 'Update applied successfully; restarting Minitiger Desktop.'"
-    << "  Start-Process -FilePath $appExe"
-    << "} catch {"
-    << "  Write-MinitigerUpdateLog (\"Update failed: $($_.Exception.Message)\")"
-    << "  Set-Content -LiteralPath $failureMarker -Value $targetBuild -Encoding ASCII"
-    << "  Wait-Process -Id $targetPid -ErrorAction SilentlyContinue"
-    << "  if (Test-Path -LiteralPath $appExe) { Start-Process -FilePath $appExe }"
-    << "} finally {"
-    << "  Start-Sleep -Milliseconds 300"
-    << "  if (Test-Path -LiteralPath $stagePath) { Remove-Item -LiteralPath $stagePath -Recurse -Force -ErrorAction SilentlyContinue }"
-    << "  if (Test-Path -LiteralPath $packagePath) { Remove-Item -LiteralPath $packagePath -Force -ErrorAction SilentlyContinue }"
-    << "}";
+  QJsonObject params;
+  params.insert("url", updateUrl.toString());
+  params.insert("expectedHash", sha256.trimmed().toLower());
+  params.insert("packageType", normalizedPackage);
+  params.insert("packagePath", QDir::toNativeSeparators(
+    QDir(updateRoot).filePath("Minitiger-Desktop-update-" + buildText + extension)));
+  params.insert("stagePath", QDir::toNativeSeparators(QDir(updateRoot).filePath("stage-" + buildText)));
+  params.insert("appDir", QDir::toNativeSeparators(appDir));
+  params.insert("appExe", QDir::toNativeSeparators(QDir(appDir).filePath("Minitiger Desktop.exe")));
+  params.insert("targetPid", QCoreApplication::applicationPid());
+  params.insert("targetBuild", targetBuild);
+  params.insert("targetVersion", targetVersion.trimmed());
 
-  QFile scriptFile(scriptPath);
-  if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
-  {
-    qWarning() << "Could not write Minitiger update script:" << scriptPath;
+  // Downloads, verifies the hash and installs while showing a progress
+  // window; see resources/updater/minitiger-updater.ps1.
+  if (!MinitigerUpdater::start(params))
     return false;
-  }
-
-  QTextStream stream(&scriptFile);
-  stream << script.join("\r\n");
-  scriptFile.close();
-
-  QStringList arguments;
-  arguments << "-NoProfile"
-            << "-ExecutionPolicy"
-            << "Bypass"
-            << "-File"
-            << QDir::toNativeSeparators(scriptPath);
-
-  if (!QProcess::startDetached("powershell.exe", arguments))
-  {
-    qWarning() << "Could not start detached Minitiger update process.";
-    return false;
-  }
 
   qInfo() << "Minitiger private update accepted; updater process started for build" << targetBuild;
 
