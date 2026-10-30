@@ -1,0 +1,67 @@
+name: Symbolize Qt crash (diagnostic)
+
+# One-off diagnostic: translates a crash offset inside Qt6Gui.dll into the
+# Qt function, file and line using Qt's official debug symbols. Runs when
+# this branch is pushed and publishes nothing.
+on:
+  push:
+    branches:
+      - claude/crash-symbolize
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: '6.10.1'
+  QT_MODULE_DLL: 'Qt6Gui'
+  CRASH_OFFSET: '0x4382d7'
+  EXPECTED_TIMESTAMP: '6915b402'
+
+jobs:
+  symbolize:
+    runs-on: windows-latest
+    steps:
+      - name: Install aqtinstall
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check aqtinstall
+
+      - name: Install Qt base and its debug symbols
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          aqt install-qt windows desktop $env:QT_VERSION win64_msvc2022_64 --archives qtbase -O C:\Qt
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $archives = (aqt list-qt windows desktop --archives $env:QT_VERSION win64_msvc2022_64 debug_info) -join ' '
+          Write-Host "debug_info archives: $archives"
+          aqt install-qt windows desktop $env:QT_VERSION win64_msvc2022_64 -m debug_info --archives qtbase -O C:\Qt
+          if ($LASTEXITCODE) {
+            Write-Host "::warning::qtbase-only debug_info install failed; installing all debug_info archives."
+            aqt install-qt windows desktop $env:QT_VERSION win64_msvc2022_64 -m debug_info -O C:\Qt
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+
+      - name: Symbolize
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dll = Get-ChildItem C:\Qt -Recurse -Filter "$env:QT_MODULE_DLL.dll" | Where-Object { $_.FullName -match '\\bin\\' } | Select-Object -First 1
+          $pdb = Get-ChildItem C:\Qt -Recurse -Filter "$env:QT_MODULE_DLL.pdb" | Select-Object -First 1
+          if (-not $dll) { Write-Host "::error::$env:QT_MODULE_DLL.dll not found"; exit 1 }
+          if (-not $pdb) { Write-Host "::error::$env:QT_MODULE_DLL.pdb not found"; exit 1 }
+          if ($pdb.DirectoryName -ne $dll.DirectoryName) { Copy-Item $pdb.FullName $dll.DirectoryName -Force }
+
+          # PE header TimeDateStamp must match the crash report.
+          $bytes = [IO.File]::ReadAllBytes($dll.FullName)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $stamp = '{0:x8}' -f [BitConverter]::ToUInt32($bytes, $pe + 8)
+          Write-Host "::notice title=DLL::$($dll.FullName) timestamp 0x$stamp (expected 0x$env:EXPECTED_TIMESTAMP)"
+          if ($stamp -ne $env:EXPECTED_TIMESTAMP) { Write-Host "::warning::Timestamp differs; the result may not match the crashed DLL." }
+
+          $symbolizer = 'C:\Program Files\LLVM\bin\llvm-symbolizer.exe'
+          if (-not (Test-Path $symbolizer)) { Write-Host "::error::llvm-symbolizer not found"; exit 1 }
+          $lines = & $symbolizer --obj="$($dll.FullName)" --relative-address --inlines --demangle --functions=linkage $env:CRASH_OFFSET
+          $i = 0
+          foreach ($line in $lines) {
+            if ($line.Trim()) { $i++; Write-Host "::notice title=Frame $i::$line" }
+          }
+          if ($i -eq 0) { Write-Host "::error::llvm-symbolizer returned nothing" }
