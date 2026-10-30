@@ -13,11 +13,9 @@ set VLC_VERSION=3.0.23
 
 REM Minitiger Web is the authoritative frontend source for the desktop bundle.
 set MINITIGER_WEB_REPO=https://github.com/Grunttanamo/Minitiger-Desktop-Web.git
-REM TEST build 65: libVLC-only native trailer preview, MPV films unchanged, preview opacity repair
-REM TEST 69: VLC decoder versus Qt rendering instrumentation
-REM TEST: adjustable independent X/Y navigation sliders for each virtual row, main libraries and banner controls
-REM TEST: Halloween polish (flying bats, poster pumpkins and cobwebs) on top of banner-stable-111
-set MINITIGER_WEB_BRANCH=claude/halloween-polish
+REM Long-lived Desktop-Web stable base. Point a TEST branch here at a web
+REM feature branch when a TEST build should bundle unreleased web changes.
+set MINITIGER_WEB_BRANCH=stable
 
 set SCRIPT_DIR=%~dp0
 for %%i in ("%SCRIPT_DIR%\..\..") do set "PROJECT_ROOT=%%~fi"

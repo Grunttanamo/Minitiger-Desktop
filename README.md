@@ -14,7 +14,7 @@ Minitiger Desktop is based on [Jellyfin Desktop](https://github.com/jellyfin/jel
 Current stable version:
 
 ```text
-1.1.6
+1.1.7
 ```
 
 Release builds write the exact version to `VERSION` in CI; local builds use the value committed there.
@@ -62,7 +62,7 @@ The Desktop-specific Minitiger Web frontend is built from:
 
 [Grunttanamo/Minitiger-Desktop-Web](https://github.com/Grunttanamo/Minitiger-Desktop-Web)
 
-During the Windows build, Minitiger Desktop automatically syncs the `minitiger-desktop-v12.1` branch, creates a production frontend build and embeds it into the native application.
+During the Windows build, Minitiger Desktop automatically syncs the Desktop-Web branch set in `dev/windows/common.bat` (normally `stable`), creates a production frontend build and embeds it into the native application.
 
 At runtime, the embedded frontend is served by a private HTTP server inside the **same Minitiger Desktop process** on `127.0.0.1`.
 

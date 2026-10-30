@@ -1,6 +1,6 @@
 @echo off
 REM Minitiger Desktop - prepare the bundled Minitiger Web frontend
-REM Desktop-only frontend source: Grunttanamo/Minitiger-Desktop-Web, branch minitiger-desktop-v12.1.
+REM Desktop-only frontend source: Grunttanamo/Minitiger-Desktop-Web, branch from MINITIGER_WEB_BRANCH (normally stable).
 
 setlocal EnableDelayedExpansion
 call "%~dp0common.bat"

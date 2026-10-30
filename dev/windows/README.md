@@ -84,7 +84,7 @@ The Windows build now prepares the dedicated Minitiger Desktop Web frontend auto
 
 ```text
 https://github.com/Grunttanamo/Minitiger-Desktop-Web
-branch: minitiger-desktop-v12.1
+branch: stable (set in common.bat)
 ```
 
 The public `Grunttanamo/Minitiger` repository remains the independent Web / Sidecar build.
