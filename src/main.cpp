@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
 
 #ifdef Q_OS_WIN
     // Invalidate ONLY disposable HTTP/rendering cache when the client
-    // version changes. Never touch the profile's dataDir("QtWebEngine"):
+    // version or build changes. Never touch the profile's dataDir("QtWebEngine"):
     // it contains persistent cookies, local storage and login sessions.
     // Run before QtWebEngine starts so its cache files are not in use.
     {
@@ -406,7 +406,11 @@ int main(int argc, char *argv[])
           ProfileManager::activeProfile().cacheDir("QtWebEngine");
       const QString dataPath =
           ProfileManager::activeProfile().dataDir("QtWebEngine");
-      const QString version = Version::GetVersionString().trimmed();
+      // Include the update build number: TEST builds of the same version
+      // (for example 1.1.6 b95 and b97) must refresh the cache as well.
+      const QString version = QString("%1+b%2")
+          .arg(Version::GetVersionString().trimmed())
+          .arg(Version::GetUpdateBuildNumber());
 
       QFile marker(markerPath);
       QString previousVersion;
