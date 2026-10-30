@@ -160,7 +160,8 @@ int main(int argc, char *argv[])
                        {"windowed",                 "Start in windowed mode"},
                        {"fullscreen",               "Start in fullscreen"},
                        {"disable-gpu",              "Disable QtWebEngine gpu accel"},
-                       {"ignore-certificate-errors", "Ignore certificate errors"}});
+                       {"ignore-certificate-errors", "Ignore certificate errors"},
+                       {"enable-accessibility",     "Expose the web interface to screen readers"}});
 
     auto scaleOption = QCommandLineOption("scale-factor", "Set to a integer or default auto which controls" \
                                                           "the scale (DPI) of the desktop interface.");
@@ -509,6 +510,14 @@ int main(int argc, char *argv[])
 #endif
 
     QStringList chromiumFlags;
+#ifdef Q_OS_WIN
+    // Qt 6.10 crashes in QAccessible::registerAccessibleInterface when
+    // Chromium rebuilds its accessibility tree, e.g. on closing a dashboard
+    // dialog, whenever some program on the system queries UI Automation.
+    // Without renderer accessibility Chromium never hands those nodes to Qt.
+    if (!parser.isSet("enable-accessibility"))
+      chromiumFlags << "--disable-renderer-accessibility";
+#endif
 #ifdef Q_OS_LINUX
     // Disable QtWebEngine's automatic MPRIS registration - we handle it ourselves
     chromiumFlags << "--disable-features=MediaSessionService,HardwareMediaKeyHandling";
