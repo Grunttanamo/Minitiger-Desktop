@@ -303,25 +303,40 @@ void PlayerComponent::applyVlcStreamSelections()
       qWarning() << "VLC Phase 1.4: failed to apply audio stream" << m_currentAudioStream;
   }
 
-  const QString subtitleSelection = m_currentSubtitleStream.toString();
-  if (subtitleSelection.startsWith("#,"))
+  applyVlcSubtitleSelection(m_currentSubtitleStream);
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void PlayerComponent::applyVlcSubtitleSelection(const QVariant& subtitleStream)
+{
+#ifdef MINITIGER_ENABLE_VLC
+  if (!m_vlcVideoItem)
+    return;
+
+  // "#,<url>" selects an external subtitle; a negative or missing index
+  // disables subtitles; otherwise it is a 1-based relative track index.
+  const QString selection = subtitleStream.toString();
+  if (selection.startsWith("#,"))
   {
-    const QString subtitleUrl = subtitleSelection.mid(2);
+    const QString subtitleUrl = selection.mid(2);
     if (!m_vlcVideoItem->addExternalSubtitle(subtitleUrl))
-      qWarning() << "VLC Phase 1.4: failed to add external subtitle" << subtitleUrl;
+      qWarning() << "VLC: failed to add external subtitle" << subtitleUrl;
     return;
   }
 
-  bool subtitleOk = false;
-  const int subtitleRelativeIndex = m_currentSubtitleStream.toInt(&subtitleOk);
-  if (!subtitleOk || subtitleRelativeIndex < 0)
+  bool ok = false;
+  const int relativeIndex = subtitleStream.toInt(&ok);
+  if (!ok || relativeIndex < 0)
   {
     m_vlcVideoItem->setSubtitleTrackRelative(-1);
     return;
   }
 
-  if (!m_vlcVideoItem->setSubtitleTrackRelative(subtitleRelativeIndex))
-    qWarning() << "VLC Phase 1.4: failed to apply subtitle stream" << m_currentSubtitleStream;
+  if (!m_vlcVideoItem->setSubtitleTrackRelative(relativeIndex))
+    qWarning() << "VLC: failed to apply subtitle stream" << subtitleStream;
+#else
+  Q_UNUSED(subtitleStream);
 #endif
 }
 
@@ -1339,26 +1354,7 @@ void PlayerComponent::setSubtitleStream(const QVariant &subtitleStream)
 #ifdef MINITIGER_ENABLE_VLC
   if (m_vlcPlaybackActive && m_vlcVideoItem)
   {
-    const QString selection = subtitleStream.toString();
-
-    if (selection.startsWith("#,"))
-    {
-      const QString subtitleUrl = selection.mid(2);
-      if (!m_vlcVideoItem->addExternalSubtitle(subtitleUrl))
-        qWarning() << "VLC Phase 1.4: external subtitle switch failed:" << subtitleUrl;
-      return;
-    }
-
-    bool ok = false;
-    const int relativeIndex = subtitleStream.toInt(&ok);
-    if (!ok || relativeIndex < 0)
-    {
-      m_vlcVideoItem->setSubtitleTrackRelative(-1);
-      return;
-    }
-
-    if (!m_vlcVideoItem->setSubtitleTrackRelative(relativeIndex))
-      qWarning() << "VLC Phase 1.4: subtitle track switch failed:" << subtitleStream;
+    applyVlcSubtitleSelection(subtitleStream);
     return;
   }
 #endif

@@ -248,6 +248,7 @@ private:
   void setVlcSurfaceActive(bool active);
   void updateVlcVideoGeometry();
   void applyVlcStreamSelections();
+  void applyVlcSubtitleSelection(const QVariant& subtitleStream);
   QVariantList findStreamsForURL(const QString &url);
   void reselectStream(const QVariant &streamSelection, MediaType target);
 
