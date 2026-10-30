@@ -96,12 +96,13 @@ $form.Controls.Add($versionLabel)
 
 $stepLabel = New-Object System.Windows.Forms.Label
 $stepLabel.Location = New-Object System.Drawing.Point(24, 94)
-$stepLabel.Size = New-Object System.Drawing.Size(300, 20)
+$stepLabel.Size = New-Object System.Drawing.Size(220, 20)
+$stepLabel.AutoEllipsis = $true
 $form.Controls.Add($stepLabel)
 
 $detailLabel = New-Object System.Windows.Forms.Label
-$detailLabel.Location = New-Object System.Drawing.Point(300, 94)
-$detailLabel.Size = New-Object System.Drawing.Size(156, 20)
+$detailLabel.Location = New-Object System.Drawing.Point(236, 94)
+$detailLabel.Size = New-Object System.Drawing.Size(220, 20)
 $detailLabel.TextAlign = 'TopRight'
 $detailLabel.ForeColor = $muted
 $form.Controls.Add($detailLabel)
@@ -158,7 +159,9 @@ function Set-Progress($fraction, [string]$detail = '') {
         $script:indeterminate = $true
     } else {
         $script:indeterminate = $false
-        $fraction = [Math]::Max(0, [Math]::Min(1, [double]$fraction))
+        # Double literals: [Math]::Max(0, 0.46) would pick the int overload
+        # and round every value to 0 or 1.
+        $fraction = [Math]::Max([double]0.0, [Math]::Min([double]1.0, [double]$fraction))
         $fillPanel.Left = 0
         $fillPanel.Width = [int]($trackPanel.Width * $fraction)
     }
