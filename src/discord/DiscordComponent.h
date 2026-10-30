@@ -44,6 +44,7 @@ private:
 
   void connectDiscord();
   void tryNextEndpoint();
+  void scheduleReconnect(int delayMs);
   void sendHandshake();
   void sendActivity();
   void sendBrowsingActivity();
@@ -56,6 +57,7 @@ private:
 
   QLocalSocket* m_socket = nullptr;
   QTimer m_presenceTimer;
+  QTimer m_reconnectTimer;
   QStringList m_endpoints;
   int m_endpointIndex = 0;
 

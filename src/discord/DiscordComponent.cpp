@@ -17,13 +17,23 @@ DiscordComponent::DiscordComponent(QObject* parent)
   m_presenceTimer.setSingleShot(true);
   m_presenceTimer.setInterval(220);
 
+  // A single reconnect timer. Every presence update used to start its own
+  // retry chain while Discord was not running, so chains piled up for the
+  // whole playback session.
+  m_reconnectTimer.setSingleShot(true);
+  connect(&m_reconnectTimer, &QTimer::timeout, this, [this]() {
+    connectDiscord();
+  });
+
   connect(&m_presenceTimer, &QTimer::timeout, this, [this]() {
     if (!m_enabled || m_clientId.trimmed().isEmpty())
       return;
 
     if (!m_socket || m_socket->state() != QLocalSocket::ConnectedState)
     {
-      connectDiscord();
+      // A pending reconnect sends the activity once connected.
+      if (!m_reconnectTimer.isActive())
+        connectDiscord();
       return;
     }
 
@@ -51,9 +61,7 @@ bool DiscordComponent::componentInitialize()
 
   connect(m_socket, &QLocalSocket::disconnected, this, [this]() {
     if (m_enabled)
-      QTimer::singleShot(1500, this, [this]() {
-        connectDiscord();
-      });
+      scheduleReconnect(1500);
   });
 
   connect(
@@ -64,8 +72,13 @@ bool DiscordComponent::componentInitialize()
         if (!m_enabled)
           return;
 
-        if (m_socket->state() == QLocalSocket::UnconnectedState)
+        // Qt emits errorOccurred before the socket returns to
+        // UnconnectedState (at least on Unix), so a direct call would stop
+        // the endpoint walk after discord-ipc-0. Continue once the state
+        // has settled.
+        QMetaObject::invokeMethod(this, [this]() {
           tryNextEndpoint();
+        }, Qt::QueuedConnection);
       });
 
   return true;
@@ -173,6 +186,8 @@ void DiscordComponent::configure(
 
   if (!m_enabled || m_clientId.isEmpty())
   {
+    m_reconnectTimer.stop();
+
     if (m_socket && m_socket->state() == QLocalSocket::ConnectedState)
       clearActivity();
 
@@ -328,6 +343,7 @@ void DiscordComponent::connectDiscord()
       || m_socket->state() == QLocalSocket::ConnectingState)
     return;
 
+  m_reconnectTimer.stop();
   m_endpoints = endpointCandidates();
   m_endpointIndex = 0;
   tryNextEndpoint();
@@ -343,14 +359,20 @@ void DiscordComponent::tryNextEndpoint()
 
   if (m_endpointIndex >= m_endpoints.size())
   {
-    QTimer::singleShot(3500, this, [this]() {
-      connectDiscord();
-    });
+    scheduleReconnect(3500);
     return;
   }
 
   const QString endpoint = m_endpoints.at(m_endpointIndex++);
   m_socket->connectToServer(endpoint, QIODevice::ReadWrite);
+}
+
+void DiscordComponent::scheduleReconnect(int delayMs)
+{
+  if (!m_enabled || m_reconnectTimer.isActive())
+    return;
+
+  m_reconnectTimer.start(delayMs);
 }
 
 void DiscordComponent::sendHandshake()
